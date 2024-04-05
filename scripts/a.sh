@@ -209,7 +209,8 @@ fi
 
 ########### Set 480p Output Format if compatible and required ###############
 
-let IMAGE_HEIGHT=576
+#let IMAGE_HEIGHT=576
+let IMAGE_HEIGHT=480
 
 if [ "$MODE_INPUT" == "CAMMPEG-2" ] || [ "$MODE_INPUT" == "ANALOGMPEG-2" ]; then
   # Set IMAGE_HEIGHT
@@ -432,8 +433,8 @@ else # h264
   # Set the H264 image size
   if [ "$BITRATE_VIDEO" -gt 190000 ]; then  # 333KS FEC 1/2 or better
     VIDEO_WIDTH=704
-    VIDEO_HEIGHT=576
-    VIDEO_FPS=25
+    VIDEO_HEIGHT=480
+    VIDEO_FPS=29.97
   else
     VIDEO_WIDTH=352
     VIDEO_HEIGHT=288
@@ -829,7 +830,7 @@ fi
             -i $VID_PICAM \
             $VF $CAPTION -framerate 25 \
             -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" -c:v h264_omx -b:v 576k \
-            -g 25 \
+            -g 29.97 \
             -f flv $STREAM_URL/$STREAM_KEY &
         else
           $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET" \
@@ -840,7 +841,7 @@ fi
             $VF $CAPTION -framerate 25 \
             -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" -c:v h264_omx -b:v 512k \
             -ar 22050 -ac $AUDIO_CHANNELS -ab 64k \
-            -g 25 \
+            -g 29.97 \
             -f flv $STREAM_URL/$STREAM_KEY &
         fi
       ;;
