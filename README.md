@@ -28,7 +28,7 @@ https://downloads.raspberrypi.org/raspios_oldstable_lite_armhf/images/raspios_ol
 
 
 ```sh
-wget https://raw.githubusercontent.com/BritishAmateurTelevisionClub/portsdown4/master/install_portsdown.sh
+wget https://raw.githubusercontent.com/Marx1/portsdown4_NTSC/master/install_portsdown.sh
 chmod +x install_portsdown.sh
 ./install_portsdown.sh
 ```
