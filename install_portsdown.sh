@@ -11,6 +11,7 @@ fi
 
 # Check which source needs to be loaded
 GIT_SRC="Marx1"
+GIT_SRC_BATC="BritishAmateurTelevisionClub"
 GIT_SRC_FILE=".portsdown_gitsrc"
 
 if [ "$1" == "-d" ]; then
@@ -72,7 +73,7 @@ echo "----- Installing Packages -----"
 echo "-------------------------------"
 
 sudo apt-get -y install git cmake libusb-1.0-0-dev libfftw3-dev libxcb-shape0 
-sudo apt-get -y install wiringpi                                         # Wiring pi depracated? 
+sudo apt-get -y apt-                                     # Wiring pi depracated? 
 sudo apt-get -y install libx11-dev buffer libjpeg-dev indent 
 sudo apt-get -y install bc usbmount libvncserver-dev
 sudo apt-get -y install ttf-dejavu-core                                  # being depracated?
@@ -247,7 +248,7 @@ echo "--------------------------------------------------------------"
 
 # Download the previously selected version of avc2ts for Portsdown 4
 cd /home/pi	
-wget https://github.com/${GIT_SRC}/avc2ts/archive/refs/heads/portsdown4.zip
+wget https://github.com/${GIT_SRC_BATC}/avc2ts/archive/refs/heads/portsdown4.zip
 
 # Unzip the avc2ts software and copy to the Pi
 unzip -o portsdown4.zip
