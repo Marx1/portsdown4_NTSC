@@ -10,7 +10,7 @@ if [ $? != 0 ]; then
 fi
 
 # Check which source needs to be loaded
-GIT_SRC="BritishAmateurTelevisionClub"
+GIT_SRC="Marx1"
 GIT_SRC_FILE=".portsdown_gitsrc"
 
 if [ "$1" == "-d" ]; then
@@ -37,7 +37,7 @@ fi
 
 # Download and install the VLC apt Preferences File 202212090
 cd /home/pi
-wget https://github.com/${GIT_SRC}/portsdown4/raw/master/scripts/configs/vlc
+wget https://github.com/${GIT_SRC}/portsdown4_NTSC/raw/master/scripts/configs/vlc
 sudo cp vlc /etc/apt/preferences.d/vlc
 
 # Update the package manager
@@ -173,7 +173,7 @@ echo
 echo "--------------------------------------------"
 echo "----- Downloading Portsdown 4 Software -----"
 echo "--------------------------------------------"
-wget https://github.com/${GIT_SRC}/portsdown4/archive/master.zip
+wget https://github.com/${GIT_SRC}/portsdown4_NTSC/archive/master.zip
 
 # Unzip the rpidatv software and copy to the Pi
 unzip -o master.zip
