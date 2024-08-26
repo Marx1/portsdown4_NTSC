@@ -197,7 +197,7 @@ char CurrentTXMode[255] = "DVB-S";
 char CurrentPilots[7] = "off";
 char CurrentFrames[7] = "long";
 //char CurrentModeInput[255] = "DESKTOP";
-char TabEncoding[5][15] = {"MPEG-2", "H264", "H265", "IPTS in", "TS File"};
+char TabEncoding[7][15] = {"MPEG-2", "H264", "H265", "IPTS in", "TS File", "IPTS in H264", "IPTS in H265"};
 char CurrentEncoding[255] = "H264";
 char TabSource[10][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "PiScreen", "Contest", "Webcam", "C920", "HDMI", "PC"};
 char CurrentSource[15] = "PiScreen";
@@ -219,6 +219,7 @@ char CurrentPiCamOrientation[15] = "normal";
 // "IPTSIN","ANALOGMPEG-2", "CARDMPEG-2", "CAMHDMPEG-2", "DESKTOP", "FILETS"
 //  NOT "C920"
 // "JHDMI", "JCAM", "JPC", "JCARD", "JWEBCAM", "HDMI"
+// "IPTSIN264", "IPTSIN265"
 
 // Composite Video Output variables
 char TabVidSource[8][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "Snap", "Contest", "Webcam", "Movie"};
@@ -279,6 +280,8 @@ bool VLCResetRequest = false; // Set on touchsscreen request for VLC to be reset
 int  CurrentVLCVolume = 256;  // Read from config file                   
 
 // LongMynd RX Received Parameters for display
+bool timeOverlay = false;    // Display time overlay on received metadata and snaps
+time_t t;                    // current time
 
 // Stream Display Parameters. [0] is current
 char StreamAddress[9][127];  // Full rtmp address of stream
@@ -359,7 +362,8 @@ int TouchPressure;
 int TouchTrigger = 0;
 bool touchneedsinitialisation = true;
 bool FalseTouch = false;     // used to simulate a screen touch if a monitored event finishes
-
+bool boot_to_tx = false;
+bool boot_to_rx = false;
 
 // Web Control globals
 bool webcontrol = false;               // Enables remote control of touchscreen functions
@@ -372,6 +376,12 @@ bool webclicklistenerrunning = false;  // Used to only start thread if required
 char WebClickForAction[7] = "no";      // no/yes
 bool touchscreen_present = true;       // detected on startup; used to control menu availability
 bool reboot_required = false;          // used after hdmi display change
+bool mouse_active = false;             // set true after first movement of mouse
+bool MouseClickForAction = false;      // set true on left click of mouse
+int mouse_x;                           // click x 0 - 799 from left
+int mouse_y;                           // click y 0 - 479 from top
+bool image_complete = true;            // prevents mouse image buffer from being copied until image is complete
+bool mouse_connected = false;          // Set true if mouse detected at startup
 
 
 // Threads for Touchscreen monitoring
@@ -379,11 +389,12 @@ bool reboot_required = false;          // used after hdmi display change
 pthread_t thbutton;         //
 pthread_t thview;           //
 pthread_t thwait3;          //  Used to count 3 seconds for WebCam reset after transmit
-pthread_t thwebclick;       //  Listens for mouse clicks from web interface
+pthread_t thwebclick;       //  Listens for clicks from web interface
 pthread_t thtouchscreen;    //  listens to the touchscreen   
 pthread_t thrfe15;          //  Turns LimeRFE on after 15 seconds
 pthread_t thbuttonFileVLC;  //  Handles touches during VLC play from file
 pthread_t thbuttonIQPlay;   //  Handles touches to stop IQ player
+pthread_t thmouse;          //  Listens to the mouse
 
 // ************** Function Prototypes **********************************//
 
@@ -410,6 +421,7 @@ void DisplayUpdateMsg(char* Version, char* Step);
 void PrepSWUpdate();
 void ExecuteUpdate(int NoButton);
 void LimeFWUpdate(int button);
+int CheckMouse();
 void GetGPUTemp(char GPUTemp[256]);
 void GetCPUTemp(char CPUTemp[256]);
 void GetThrottled(char Throttled[256]);
@@ -501,15 +513,15 @@ void FileOperation(int button);
 void *WaitButtonIQPlay(void * arg);
 void IQFileOperation(int button);
 void ListUSBDevices();
+int USBmounted();
+int USBDriveDevice();
 void ListNetDevices();
 void ListNetPis();
 void DisplayLogo();
 void TransformTouchMap(int x, int y);
-int IsButtonPushed(int NbButton,int x,int y);
 int IsMenuButtonPushed(int x,int y);
 int IsImageToBeChanged(int x,int y);
 int InitialiseButtons();
-int AddButton(int x,int y,int w,int h);
 int ButtonNumber(int MenuIndex, int Button);
 int CreateButton(int MenuIndex, int ButtonPosition);
 int AddButtonStatus(int ButtonIndex,char *Text,color_t *Color);
@@ -521,6 +533,8 @@ int getTouchScreenDetails(int *screenXmin,int *screenXmax,int *screenYmin,int *s
 int getTouchSampleThread(int *rawX, int *rawY, int *rawPressure);
 int getTouchSample(int *rawX, int *rawY, int *rawPressure);
 void *WaitTouchscreenEvent(void * arg);
+void *WaitMouseEvent(void * arg);
+void handle_mouse();
 void *WebClickListener(void * arg);
 void parseClickQuerystring(char *query_string, int *x_ptr, int *y_ptr);
 FFUNC touchscreenClick(ffunc_session_t * session);
@@ -957,6 +971,8 @@ void DisplayHere(char *DisplayCaption)
   system(ConvertCommand);
 
   system("sudo fbi -T 1 -noverbose -a /home/pi/tmp/streamcaption.png  >/dev/null 2>/dev/null");  // Add logo image
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
 }
 
@@ -1586,6 +1602,8 @@ void ExecuteUpdate(int NoButton)
       // Display the updating message
       strcpy(Step, "Step 1 of 10\\nDownloading Update\\n\\nX---------");
       DisplayUpdateMsg("Latest" , Step);
+      refreshMouseBackground();
+      draw_cursor_foreground(mouse_x, mouse_y);
       UpdateWeb();
 
       // Delete any old update
@@ -1645,6 +1663,46 @@ void ExecuteUpdate(int NoButton)
     break;
   }
 }
+
+
+/***************************************************************************//**
+ * @brief Detects if a mouse is currently connected
+ *
+ * @param nil
+ *
+ * @return 0 if connected, 1 if not connected
+*******************************************************************************/
+
+int CheckMouse()
+{
+  FILE *fp;
+  char response_line[255];
+
+  // Read the Webcam address if it is present
+
+  fp = popen("ls -l /dev/input | grep 'mouse'", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  // Response is "crw-rw---- 1 root input 13, 32 Apr 29 17:02 mouse0" if present, null if not
+  // So, if there is a response, return 0.
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(response_line, 250, fp) != NULL)
+  {
+    if (strlen(response_line) > 1)
+    {
+      pclose(fp);
+      return 0;
+    }
+  }
+  pclose(fp);
+  return 1;
+}
+
 
 /***************************************************************************//**
  * @brief Performs Lime firmware update and checks GW revision
@@ -2011,6 +2069,18 @@ void ReadModeInput(char coding[256], char vsource[256])
     strcpy(coding, "Native");
     strcpy(vsource, "IP Transport Stream");
     strcpy(CurrentEncoding, "IPTS in");
+  }
+  else if (strcmp(ModeInput, "IPTSIN264") == 0)
+  {
+    strcpy(coding, "Native");
+    strcpy(vsource, "Raw IP Transport Stream H264");
+    strcpy(CurrentEncoding, "IPTS in H264");
+  }
+  else if (strcmp(ModeInput, "IPTSIN265") == 0)
+  {
+    strcpy(coding, "Native");
+    strcpy(vsource, "Raw IP Transport Stream H265");
+    strcpy(CurrentEncoding, "IPTS in H265");
   }
   else if (strcmp(ModeInput, "VNC") == 0)
   {
@@ -4129,6 +4199,18 @@ void ReadLMRXPresets()
   {
     strcpy(RXmod, "DVB-S");
   }
+
+  // Time Overlay
+  strcpy(Value, "off");
+  GetConfigParam(PATH_PCONFIG, "timeoverlay", Value);
+  if (strcmp(Value, "off") == 0)
+  {
+    timeOverlay = false;
+  }
+  else
+  {
+    timeOverlay = true;
+  }
 }
 
 void ChangeLMRXIP()
@@ -5304,6 +5386,8 @@ void LimeInfo()
   /* close */
   pclose(fp);
   Text2(wscreen/12, 1.2 * linepitch, "Touch Screen to Continue", font_ptr);
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
 }
 
@@ -5732,6 +5816,8 @@ void LimeMiniTest()
   }
   setForeColour(255, 255, 255);    // White text
   Text2(wscreen*5/12, 1, "Touch Screen to Continue", font_ptr);
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
 }
 
@@ -5780,6 +5866,8 @@ void LimeUtilInfo()
   /* close */
   pclose(fp);
   Text2(wscreen/12, 1.2 * th, "Touch Screen to Continue", font_ptr);
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
 }
 
@@ -5952,6 +6040,8 @@ void ShowImageFile(char *ImagePath, char *ImageFile)
 
   usleep(100000);  // Delay to allow fbi to finish
 
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
 
   while(NotWaitingforTouchYet)
@@ -6289,7 +6379,129 @@ void FileOperation(int NoButton)
       }
 
       break;
+    case 13:                                                                                // Mount/unmount USB
+      // Check drive device name
+      
+      if (USBmounted() == 0) // mounted, so unmount
+      {
+        if (USBDriveDevice() == 1)
+        {
+          system("sudo umount /dev/sda1");
+        }
+        else
+        {
+          system("sudo umount /dev/sdb1");
+        }
+      }
+      else                  // not mounted, so mount and display file explorer
+      {
+        if (USBDriveDevice() == 1)
+        {
+          system("sudo mount /dev/sda1 /mnt");
+        }
+        else if (USBDriveDevice() == 2)
+        {
+          system("sudo mount /dev/sdb1 /mnt");
+        }
+        else
+        {
+          MsgBox4("Failed to mount USB Drive", "Check Connections", "", "Touch screen to continue");
+          wait_touch();
+          return;
+        }
+
+        if (USBmounted() == 0)
+        {
+          strcpy(CurrentPathSelection, "/mnt/");
+          strcpy(CurrentFileSelection, "");
+          FileOperation(5);
+        }
+        else
+        {
+          MsgBox4("Failed to mount USB Drive", "Check Connections", "", "Touch screen to continue");
+          wait_touch();
+        }
+      }
+      break;
   }
+}
+
+
+/***************************************************************************//**
+ * @brief Detects if a USB Drive is currently mounted at /mnt
+ *
+ * @param nil
+ *
+ * @return 0 if mounted, 1 if not mounted
+*******************************************************************************/
+
+int USBmounted()
+{
+  FILE *fp;
+  char response_line[255];
+
+  // Check the mountpoint
+
+  fp = popen("mountpoint -d /mnt | grep 'not a mountpoint'", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  // Response is "not a mountpoint" if not mounted
+  // So, if there is a response, return 1.
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(response_line, 250, fp) != NULL)
+  {
+    if (strlen(response_line) > 1)
+    {
+      pclose(fp);
+      return 1;
+    }
+  }
+  pclose(fp);
+  return 0;
+}
+
+
+/***************************************************************************//**
+ * @brief Checks the device name for a USB drive
+ *
+ * @param nil
+ *
+ * @return 0 if none, 1 if sda1, 2 if sdb1
+*******************************************************************************/
+
+int USBDriveDevice()
+{
+  FILE *fp;
+  char response_line[255];
+  int return_value = 0;
+
+  // Check the mountpoint
+
+  fp = popen("/home/pi/rpidatv/scripts/check_usb_storage.sh", "r");
+  if (fp == NULL)
+  {
+    printf("Failed to run command\n" );
+    exit(1);
+  }
+
+  // Response is 0, 1 or 2
+
+  /* Read the output a line at a time - output it. */
+  while (fgets(response_line, 250, fp) != NULL)
+  {
+    if (strlen(response_line) >= 1)
+    {
+      return_value = atoi(response_line);
+    }
+  }
+  pclose(fp);
+  //printf("Driver return value = %d\n", return_value);
+  return return_value;
 }
 
 
@@ -6581,6 +6793,8 @@ void DisplayLogo()
 {
   system("sudo fbi -T 1 -noverbose -a \"/home/pi/rpidatv/scripts/images/BATC_Black.png\" >/dev/null 2>/dev/null");
   UpdateWeb();
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   system("(sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &");
 }
 
@@ -6631,25 +6845,6 @@ void TransformTouchMap(int x, int y)
 }
 
 
-int IsButtonPushed(int NbButton,int x,int y)
-{
-  TransformTouchMap(x,y);  // Sorts out orientation and approx scaling of the touch map
-
-  //printf("x=%d y=%d scaledx %d scaledy %d sxv %f syv %f Button %d\n",x,y,scaledX,scaledY,scaleXvalue,scaleYvalue, NbButton);
-
-  int margin=10;  // was 20
-
-  if((scaledX<=(ButtonArray[NbButton].x+ButtonArray[NbButton].w-margin))&&(scaledX>=ButtonArray[NbButton].x+margin) &&
-    (scaledY<=(ButtonArray[NbButton].y+ButtonArray[NbButton].h-margin))&&(scaledY>=ButtonArray[NbButton].y+margin))
-  {
-    return 1;
-  }
-  else
-  {
-    return 0;
-  }
-}
-
 int IsMenuButtonPushed(int x,int y)
 {
   int  i, NbButton, cmo, cmsize;
@@ -6690,10 +6885,10 @@ int IsImageToBeChanged(int x,int y)
 
   TransformTouchMap(x,y);       // Sorts out orientation and approx scaling of the touch map
 
-  if (scaledY >= hscreen/2)
-  {
-    return 0;
-  }
+  //if (scaledY >= hscreen/2)
+  //{
+  //  return 0;
+  //}
   if (scaledX <= wscreen/8)
   {
     return -1;
@@ -6720,17 +6915,6 @@ int InitialiseButtons()
   return 1;
 }
 
-int AddButton(int x,int y,int w,int h)
-{
-  button_t *NewButton=&(ButtonArray[IndexButtonInArray]);
-  NewButton->x=x;
-  NewButton->y=y;
-  NewButton->w=w;
-  NewButton->h=h;
-  NewButton->NoStatus=0;
-  NewButton->IndexStatus=0;
-  return IndexButtonInArray++;
-}
 
 int ButtonNumber(int MenuIndex, int Button)
 {
@@ -7276,6 +7460,7 @@ int getTouchSample(int *rawX, int *rawY, int *rawPressure)
       *rawY = TouchY;
       *rawPressure = TouchPressure;
       TouchTrigger = 0;
+      printf("Touch rawX = %d, rawY = %d, rawPressure = %d\n", *rawX, *rawY, *rawPressure);
       return 1;
     }
     else if ((webcontrol == true) && (strcmp(WebClickForAction, "yes") == 0))
@@ -7285,6 +7470,15 @@ int getTouchSample(int *rawX, int *rawY, int *rawPressure)
       *rawPressure = 0;
       strcpy(WebClickForAction, "no");
       printf("Web rawX = %d, rawY = %d, rawPressure = %d\n", *rawX, *rawY, *rawPressure);
+      return 1;
+    }
+    else if (MouseClickForAction == true)
+    {
+      *rawX = mouse_x;
+      *rawY = mouse_y;
+      *rawPressure = 0;
+      MouseClickForAction = false;
+      printf("Mouse rawX = %d, rawY = %d, rawPressure = %d\n", *rawX, *rawY, *rawPressure);
       return 1;
     }
     else if (FalseTouch == true)
@@ -7304,6 +7498,7 @@ int getTouchSample(int *rawX, int *rawY, int *rawPressure)
   return 0;
 }
 
+
 void *WaitTouchscreenEvent(void * arg)
 {
   int TouchTriggerTemp;
@@ -7319,6 +7514,124 @@ void *WaitTouchscreenEvent(void * arg)
     TouchTrigger = TouchTriggerTemp;
   }
   return NULL;
+}
+
+
+void *WaitMouseEvent(void * arg)
+{
+  int x = 0;
+  int y = 0;
+  int scroll = 0;
+  int fd;
+
+  bool left_button_action = false;
+
+  if ((fd = open("/dev/input/event0", O_RDONLY)) < 0)
+  {
+    perror("evdev open");
+    exit(1);
+  }
+  struct input_event ev;
+
+  while(1)
+  {
+    read(fd, &ev, sizeof(struct input_event));
+
+    if (ev.type == 2)  // EV_REL
+    {
+      if (ev.code == 0) // x
+      {
+        x = x + ev.value;
+        if (x < 0)
+        {
+          x = 0;
+        }
+        if (x > 799)
+        {
+          x = 799;
+        }
+        //printf("value %d, type %d, code %d, x_pos %d, y_pos %d\n",ev.value,ev.type,ev.code, x, y);
+        //printf("x_pos %d, y_pos %d\n", x, y);
+        mouse_active = true;
+        draw_cursor2(x, y);
+      }
+      else if (ev.code == 1) // y
+      {
+        y = y - ev.value;
+        if (y < 0)
+        {
+          y = 0;
+        }
+        if (y > 479)
+        {
+          y = 479;
+        }
+        //printf("value %d, type %d, code %d, x_pos %d, y_pos %d\n",ev.value,ev.type,ev.code, x, y);
+        //printf("x_pos %d, y_pos %d\n", x, y);
+        mouse_active = true;
+        while (image_complete == false)  // Wait for menu to be drawn
+        {
+          usleep(1000);
+        }
+        draw_cursor2(x, y);
+      }
+      else if (ev.code == 8) // scroll wheel
+      {
+        scroll = scroll + ev.value;
+        //printf("value %d, type %d, code %d, scroll %d\n",ev.value,ev.type,ev.code, scroll);
+      }
+      else
+      {
+        //printf("value %d, type %d, code %d\n", ev.value, ev.type, ev.code);
+      }
+    }
+
+    else if (ev.type == 4)  // EV_MSC
+    {
+      if (ev.code == 4) // ?
+      {
+        if (ev.value == 589825)
+        { 
+          //printf("value %d, type %d, code %d, left mouse click \n", ev.value, ev.type, ev.code);
+          //printf("Waiting for up or down signal\n");
+          left_button_action = true;
+        }
+        if (ev.value == 589826)
+        { 
+          printf("value %d, type %d, code %d, right mouse click \n", ev.value, ev.type, ev.code);
+        }
+      }
+    }
+    else if (ev.type == 1)
+    {
+      //printf("value %d, type %d, code %d\n", ev.value, ev.type, ev.code);
+
+      if ((left_button_action == true) && (ev.code == 272) && (ev.value == 1) && (mouse_active == true))
+      {
+        mouse_x = x;
+        mouse_y = 479 - y;
+        MouseClickForAction = true;
+      }
+      left_button_action = false;
+    }
+    else
+    { 
+      //printf("value %d, type %d, code %d\n", ev.value, ev.type, ev.code);
+    }
+  }
+}
+
+
+void handle_mouse()
+{
+  // First check if mouse is connected
+  if (CheckMouse() != 0)    // Mouse not connected
+  {
+    return;
+  }
+  mouse_connected = true;
+  printf("Starting Mouse Thread\n");
+  pthread_create (&thmouse, NULL, &WaitMouseEvent, NULL);
 }
 
 void *WebClickListener(void * arg)
@@ -7493,6 +7806,8 @@ void UpdateWindow()
   int first;
   int last;
 
+  image_complete = false;
+
   // Set the background colour
   if (CurrentMenu == 1)           // Main Menu White
   {
@@ -7537,7 +7852,10 @@ void UpdateWindow()
   {
     ShowMenuText();
   }
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
+  image_complete = true;
 }
 
 void ApplyTXConfig()
@@ -7615,8 +7933,10 @@ void ApplyTXConfig()
       strcpy(ModeInput, "FILETS");
     }
 
-    if ((strcmp(CurrentEncoding, "IPTS in") != 0) 
-    &&  (strcmp(CurrentEncoding, "TS File") != 0))     // Only check if not IPTS, or not TS File input
+    if ((strcmp(CurrentEncoding, "IPTS in") != 0)      // Only check if not IPTS, or not TS File input
+    &&  (strcmp(CurrentEncoding, "IPTS in H264") != 0)
+    &&  (strcmp(CurrentEncoding, "IPTS in H265") != 0)
+    &&  (strcmp(CurrentEncoding, "TS File") != 0))
     {
       if (strcmp(CurrentEncoding, "MPEG-2") == 0)
       {
@@ -7664,6 +7984,14 @@ void ApplyTXConfig()
     if (strcmp(CurrentEncoding, "IPTS in") == 0)
     {
       strcpy(ModeInput, "IPTSIN");
+    }
+    else if (strcmp(CurrentEncoding, "IPTS in H264") == 0)
+    {
+      strcpy(ModeInput, "IPTSIN264");
+    }
+    else if (strcmp(CurrentEncoding, "IPTS in H265") == 0)
+    {
+      strcpy(ModeInput, "IPTSIN265");
     }
     else if (strcmp(CurrentEncoding, "TS File") == 0)
     {
@@ -8628,6 +8956,8 @@ int SelectFromList(int CurrentSelection, char ListEntry[101][63], int ListLength
     TextMid2(Button4X + ButtonWidth / 2, ButtonY + ButtonHeight / 2, Button4Caption, &font_dejavu_sans_20);
 
     printf("List displayed and waiting for touch\n");
+    refreshMouseBackground();
+    draw_cursor_foreground(mouse_x, mouse_y);
     UpdateWeb();
 
     // Wait for key press
@@ -9164,6 +9494,7 @@ void GreyOut12()
   if(strcmp(CurrentModeOP, "PLUTO") == 0) // Pluto Selected
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 2); // Grey-out MPEG-2 button
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 2); // Grey-out Raw IPTS H265 button button
   }
   else
   {
@@ -9428,6 +9759,7 @@ void SelectFrames()  // Toggle frames long/short
 void SelectEncoding(int NoButton)  // Encoding
 {
   SelectInGroupOnMenu(CurrentMenu, 5, 9, NoButton, 1);
+  SelectInGroupOnMenu(CurrentMenu, 1, 2, NoButton, 1);
 
   // Encoding is stored as modeinput, so deal with IPTS in and TS File first
 
@@ -9435,6 +9767,16 @@ void SelectEncoding(int NoButton)  // Encoding
   {
     SetConfigParam(PATH_PCONFIG, "modeinput", "IPTSIN");
     strcpy(CurrentEncoding, "IPTS in");
+  }
+  else if (NoButton == 1)       // IPTS in H264
+  {
+    SetConfigParam(PATH_PCONFIG, "modeinput", "IPTSIN264");
+    strcpy(CurrentEncoding, "IPTS in H264");
+  }
+  else if (NoButton == 2)       // IPTS in H265
+  {
+    SetConfigParam(PATH_PCONFIG, "modeinput", "IPTSIN265");
+    strcpy(CurrentEncoding, "IPTS in H265");
   }
   else if (NoButton == 9) // TS File  
   {
@@ -10679,19 +11021,39 @@ void SetDeviceLevel()
 void AdjustVLCVolume(int adjustment)
 {
   int VLCVolumePerCent;
+  static int premuteVLCVolume;
+  static bool muted;
   char VLCVolumeText[63];
   char VolumeMessageText[63];
   char VLCVolumeCommand[255];
 
-  CurrentVLCVolume = CurrentVLCVolume + adjustment;
-  if (CurrentVLCVolume < 0)
+  if (adjustment == -512) // toggle mute
   {
-    CurrentVLCVolume = 0;
+    if (muted  == true)
+    {
+      CurrentVLCVolume = premuteVLCVolume;
+      muted = false;
+    }
+    else
+    {
+      premuteVLCVolume = CurrentVLCVolume;
+      CurrentVLCVolume = 0;
+      muted = true;
+    }
   }
-  if (CurrentVLCVolume > 512)
+  else                    // normal up or down
   {
-    CurrentVLCVolume = 512;
+    CurrentVLCVolume = CurrentVLCVolume + adjustment;
+    if (CurrentVLCVolume < 0)
+    {
+      CurrentVLCVolume = 0;
+    }
+    if (CurrentVLCVolume > 512)
+    {
+      CurrentVLCVolume = 512;
+    }
   }
+
   snprintf(VLCVolumeText, 62, "%d", CurrentVLCVolume);
   SetConfigParam(PATH_PCONFIG, "vlcvolume", VLCVolumeText);
 
@@ -11222,6 +11584,7 @@ void TransmitStart()
 
   // If Pi Cam source, and not IPTS or TS File input, clear the screen
   if ((strcmp(CurrentSource, "Pi Cam") == 0) && (strcmp(CurrentEncoding, "IPTS in") != 0)
+   && (strcmp(CurrentEncoding, "IPTS in H264") != 0) && (strcmp(CurrentEncoding, "IPTS in H265") != 0)
    && (strcmp(CurrentEncoding, "TS File") != 0))
   {
     setBackColour(0, 0, 0);
@@ -11268,6 +11631,8 @@ void TransmitStart()
     ||(strcmp(ModeInput,"CARRIER") == 0)
     ||(strcmp(ModeInput,"TESTMODE") == 0)
     ||(strcmp(ModeInput,"IPTSIN") == 0)
+    ||(strcmp(ModeInput,"IPTSIN264") == 0)
+    ||(strcmp(ModeInput,"IPTSIN265") == 0)
     ||(strcmp(ModeInput,"FILETS") == 0)
     ||(strcmp(ModeInput,"WEBCAMMPEG-2") == 0)
     ||(strcmp(ModeInput,"ANALOG16MPEG-2") == 0)
@@ -11562,12 +11927,17 @@ void *WaitButtonLMRX(void * arg)
         FinishedButton = 2; // graphics off
       }
     }
-    else if((scaledX >= 35 * wscreen / 40)  && (scaledY >= 6 * hscreen / 12))  // Top Right
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY >= 7 * hscreen / 12))  // Top Right
     {
       //printf("Volume Up.\n");
       AdjustVLCVolume(51);
     }
-    else if((scaledX >= 35 * wscreen / 40)  && (scaledY < 6 * hscreen / 12))  // Top Right
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY >= 5 * hscreen / 12) && (scaledY < 7 * hscreen / 12))  // mid Right
+    {
+      //printf("Volume Mute.\n");
+      AdjustVLCVolume(-512);
+    }
+    else if((scaledX >= 35 * wscreen / 40) && (scaledY < 5 * hscreen / 12))  // Bottom Right
     {
       //printf("Volume Down.\n");
       AdjustVLCVolume(-51);
@@ -12233,6 +12603,7 @@ void LMRX(int NoButton)
   bool webupdate_this_time = true;   // Only update web on alternate MER changes
   char LastServiceProvidertext[255] = " ";
   bool FirstReceive = true;
+  char TIMEtext[63];
 
   // DVB-T parameters
 
@@ -12275,6 +12646,8 @@ void LMRX(int NoButton)
     system(LinuxCommand);
     strcpy(LinuxCommand, "(sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &");
     system(LinuxCommand);
+    refreshMouseBackground();
+    draw_cursor_foreground(mouse_x, mouse_y);
     UpdateWeb();
   }
   else // MER display modes
@@ -12424,6 +12797,11 @@ void LMRX(int NoButton)
             }
             FREQ = FREQ / 1000;
             snprintf(FREQtext, 15, "%.3f MHz", FREQ);
+            if ((TabBandLO[CurrentBand] < -0.5) || (TabBandLO[CurrentBand] > 0.5))      // band not direct
+            {
+              strcat(FREQtext, " ");
+              strcat(FREQtext, TabBandLabel[CurrentBand]);                             // so add band label
+            }
           }
 
           if ((stat_string[0] == '9') && (stat_string[1] == ','))  // SR in S
@@ -12592,8 +12970,19 @@ void LMRX(int NoButton)
                 strcat(vlctext, MERtext);
                 strcat(vlctext, "%n");
                 strcat(vlctext, AGCtext);
-
-                strcat(vlctext, "%n.%nTouch Left to Hide Overlay%nTouch Centre to Exit");
+                strcat(vlctext, "%n");
+                if (timeOverlay == true)
+                {
+                  // Retrieve the current time
+                  t = time(NULL);
+                  strftime(TIMEtext, sizeof(TIMEtext), "%H:%M %d %b %Y", gmtime(&t));
+                  strcat(vlctext, TIMEtext);
+                }
+                else
+                {
+                  strcat(vlctext, ".");
+                }
+                strcat(vlctext, "%nTouch Left to Hide Overlay%nTouch Centre to Exit");
 
                 FILE *fw=fopen("/home/pi/tmp/vlc_temp_overlay.txt","w+");
                 if(fw!=0)
@@ -12631,6 +13020,8 @@ void LMRX(int NoButton)
             // Update web on alternate MER changes (to reduce processor workload)
             if (webupdate_this_time == true)
             {
+              refreshMouseBackground();
+              draw_cursor_foreground(mouse_x, mouse_y);
               UpdateWeb();
               webupdate_this_time = false;
             }
@@ -13604,6 +13995,8 @@ void LMRX(int NoButton)
 
             // Display large MER number
             LargeText2(wscreen * 18 / 40, hscreen * 19 / 48, 5, MERNtext, &font_dejavu_sans_32);
+            refreshMouseBackground();
+            draw_cursor_foreground(mouse_x, mouse_y);
             UpdateWeb();
           }
           stat_string[0] = '\0';
@@ -13748,6 +14141,8 @@ void LMRX(int NoButton)
                 rectangle(ls, bar_centre, wdth, hscreen - bar_centre, 0, 0, 0); // Black above centre
               }
             }
+            refreshMouseBackground();
+            draw_cursor_foreground(mouse_x, mouse_y);
             UpdateWeb();
           }
           stat_string[0] = '\0';
@@ -13874,6 +14269,8 @@ void LMRX(int NoButton)
               Text2(wscreen * 1.0 / 40.0, hscreen - 8.0 * linepitch, FREQtext, font_ptr);
             }
             Text2(wscreen * 1.0 / 40.0, hscreen - 11.5 * linepitch, "Touch Centre of screen to exit", font_ptr);
+            refreshMouseBackground();
+            draw_cursor_foreground(mouse_x, mouse_y);
             UpdateWeb();
           }
           stat_string[0] = '\0';
@@ -13956,6 +14353,8 @@ void MsgBox(char *message)
   clearScreen();
   TextMid2(wscreen / 2, hscreen /2, message, font_ptr);
   TextMid2(wscreen / 2, 20, "Touch Screen to Continue", font_ptr);
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
 
   printf("MsgBox called and waiting for touch\n");
@@ -13975,6 +14374,8 @@ void MsgBox2(char *message1, char *message2)
   TextMid2(wscreen / 2, hscreen / 2 + linepitch, message1, font_ptr);
   TextMid2(wscreen / 2, hscreen / 2 - linepitch, message2, font_ptr);
   TextMid2(wscreen / 2, 20, "Touch Screen to Continue", font_ptr);
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
 
   printf("MsgBox2 called and waiting for touch\n");
@@ -13995,6 +14396,8 @@ void MsgBox4(char *message1, char *message2, char *message3, char *message4)
   TextMid2(wscreen / 2, hscreen - 2 * (linepitch * 2), message2, font_ptr);
   TextMid2(wscreen / 2, hscreen - 3 * (linepitch * 2), message3, font_ptr);
   TextMid2(wscreen / 2, hscreen - 4 * (linepitch * 2), message4, font_ptr);
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
 
   // printf("MsgBox4 called\n");
@@ -14183,24 +14586,18 @@ void InfoScreen()
   char result2[255] = " ";
   int fec = 0;
   char FECtext[127];
+  char TIMEtext[63];
 
   // Look up and format all the parameters to be displayed
 
-  char swversion[255] = "Software Version: ";
-  if (GetLinuxVer() == 8)
-  {
-    strcat(swversion, "Jessie ");
-  }
-  else if (GetLinuxVer() == 9)
-  {
-    strcat(swversion, "Stretch ");
-  }
-  else if (GetLinuxVer() == 10)
-  {
-    strcat(swversion, "Buster ");
-  }
+  char swversion[255] = "Software Version: P4 ";
   GetSWVers(result);
   strcat(swversion, result);
+
+  char dateTime[255];
+  t = time(NULL);
+  strftime(TIMEtext, sizeof(TIMEtext), "%H:%M:%S UTC %d %b %Y", gmtime(&t));
+  strcpy(dateTime, TIMEtext);
 
   char ipaddress[255] = "IP: ";
   strcpy(result, "Not connected");
@@ -14324,6 +14721,8 @@ void InfoScreen()
   linenumber = linenumber + 2;
 
   Text2(wscreen/25, hscreen - linenumber * linepitch, swversion, font_ptr);
+
+  Text2(15 * wscreen/25, hscreen - linenumber * linepitch, dateTime, font_ptr);
   linenumber = linenumber + 1;
 
   Text2(wscreen/25, hscreen - linenumber * linepitch, ipaddress, font_ptr);
@@ -14362,8 +14761,43 @@ void InfoScreen()
   TextMid2(wscreen / 2, hscreen - linenumber * linepitch, "Touch Screen to Continue", font_ptr);
 
   printf("Info Screen called and waiting for touch\n");
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
-  wait_touch();
+
+  // Create Wait Button thread
+  pthread_create (&thbutton, NULL, &WaitButtonEvent, NULL);    // Show changing time while waiting for touch
+
+  struct tm *tm;
+  int seconds;
+  tm =  gmtime(&t);
+  seconds = tm->tm_sec;
+
+  while (FinishedButton == 0)
+  {
+    //This loop is executed at about 100 Hz
+
+    usleep(10000);
+    t = time(NULL);                           // Look up current time
+    tm =  gmtime(&t);                         // Convert to UTC
+
+    if (seconds != tm->tm_sec)                // Seconds have clicked over
+    {
+
+      strftime(TIMEtext, sizeof(TIMEtext), "%H:%M:%S UTC %d %b %Y", gmtime(&t));   // so form new time string
+      strcpy(dateTime, TIMEtext);
+
+      Text2(15 * wscreen/25, hscreen - 3 * linepitch, dateTime, font_ptr);         // and display it       
+
+      seconds = tm->tm_sec;                                                        // reset check time
+
+      refreshMouseBackground();
+      draw_cursor_foreground(mouse_x, mouse_y);
+      UpdateWeb();
+    }
+  }
+  FinishedButton = 0;
+  pthread_join(thbutton, NULL);
 }
 
 void RangeBearing()
@@ -14494,6 +14928,8 @@ void RangeBearing()
   TextMid2(wscreen/2, 20, "Touch Screen to Continue",  font_ptr);
 
   printf("Locator Bearing called and waiting for touch\n");
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
 
   wait_touch();
@@ -14571,6 +15007,8 @@ void BeaconBearing()
   }
 
   TextMid2(wscreen/2, 20, "Touch Screen to Continue",  font_ptr);
+  refreshMouseBackground();
+  draw_cursor_foreground(mouse_x, mouse_y);
   UpdateWeb();
 
   printf("Beacon Bearing called and waiting for touch\n");
@@ -14924,14 +15362,14 @@ void do_snap()
 void do_snapcheck()
 {
   FILE *fp;
-  char SnapIndex[256];
+  char SnapIndex[255];
   int SnapNumber;
   int Snap;
   int LastDisplayedSnap = -1;
   int rawX, rawY, rawPressure;
   int TCDisplay = -1;
 
-  char fbicmd[256];
+  char fbicmd[511];
 
   // Fetch the Next Snap serial number
   fp = popen("cat /home/pi/snaps/snap_index.txt", "r");
@@ -14955,12 +15393,13 @@ void do_snapcheck()
   {
     if(LastDisplayedSnap != Snap)  // only redraw if not already there
     {
-      sprintf(SnapIndex, "%d", Snap);
-      strcpy(fbicmd, "sudo fbi -T 1 -noverbose -a /home/pi/snaps/snap");
-      strcat(fbicmd, SnapIndex);
-      strcat(fbicmd, ".jpg >/dev/null 2>/dev/null");
+      sprintf(fbicmd, "convert /home/pi/snaps/snap%d.jpg -font \"FreeSans\" -size 800x480 -gravity South -pointsize 15 -fill grey80 -annotate 0,0,0,25 snap%d /home/pi/tmp/nsnap.jpg", Snap, Snap);
+      system(fbicmd);
+      strcpy(fbicmd, "sudo fbi -T 1 -noverbose -a /home/pi/tmp/nsnap.jpg >/dev/null 2>/dev/null");
       system(fbicmd);
       LastDisplayedSnap = Snap;
+      refreshMouseBackground();
+      draw_cursor_foreground(mouse_x, mouse_y);
       UpdateWeb();
     }
 
@@ -14980,6 +15419,7 @@ void do_snapcheck()
       {
         Snap = SnapNumber - 1;
       }
+      printf("Displaying snap %d\n", Snap);
     }
   }
 
@@ -16377,6 +16817,9 @@ void ManageContestCodes(int NoButton)
 
       TextMid2(wscreen / 2, hscreen - linenumber * linepitch, "Touch Screen to Continue", font_ptr);
 
+      draw_cursor_foreground(mouse_x, mouse_y);
+      UpdateWeb();
+
       printf("Contest number Screen called and waiting for touch\n");
       wait_touch();
       AwaitingContestNumberViewSeln = false;
@@ -16528,6 +16971,22 @@ void ChangeStartApp(int NoButton)
 {
   switch(NoButton)
   {
+  case 0:                          
+    SetConfigParam(PATH_PCONFIG, "startup", "Testmenu_boot");
+    strcpy(StartApp, "Testmenu_boot");
+    break;
+  case 1:                          
+    SetConfigParam(PATH_PCONFIG, "startup", "Transmit_boot");
+    strcpy(StartApp, "Transmit_boot");
+    break;
+  case 2:                          
+    SetConfigParam(PATH_PCONFIG, "startup", "Receive_boot");
+    strcpy(StartApp, "Receive_boot");
+    break;
+  case 3:                          
+    SetConfigParam(PATH_PCONFIG, "startup", "Ryde_boot");
+    strcpy(StartApp, "Ryde_boot");
+    break;
   case 5:                          
     SetConfigParam(PATH_PCONFIG, "startup", "Display_boot");
     strcpy(StartApp, "Display_boot");
@@ -17651,17 +18110,20 @@ void waituntil(int w,int h)
   rawX = 0;
   rawY = 0;
   char ValueToSave[63];
+  char device_name[63];
+  char linux_cmd[127];
 
   // Start the main loop for the Touchscreen
   for (;;)
   {
-    if ((strcmp(ScreenState, "RXwithImage") != 0) && (strcmp(ScreenState, "VideoOut") != 0)) // Don't wait for touch if returning from recieve
+    if ((strcmp(ScreenState, "RXwithImage") != 0) && (strcmp(ScreenState, "VideoOut") != 0)
+     && (boot_to_tx == false) && (boot_to_rx == false))  // Don't wait for touch if returning from recieve or booting to TX or rx
     {
       // Wait here until screen touched
       if (getTouchSample(&rawX, &rawY, &rawPressure)==0) continue;
     }
 
-    // Screen has been touched or returning from recieve
+    // Screen has been touched or returning from recieve or booting to tx or rx
     // printf("Actioning Event in waituntil x=%d y=%d\n", rawX, rawY);
 
     // React differently depending on context: char ScreenState[255]
@@ -17767,6 +18229,20 @@ void waituntil(int w,int h)
       // For Menu (normal), check which button has been pressed (Returns 0 - 23)
 
       i = IsMenuButtonPushed(rawX, rawY);
+
+      // Deal with boot to tx or boot to rx
+      if (boot_to_tx == true)
+      {
+        CurrentMenu = 1;
+        i = 20;
+        boot_to_tx = false;
+      }
+      if (boot_to_rx == true)
+      {
+        CurrentMenu = 8;
+        i = 0;
+        boot_to_rx = false;
+      }
 
       if (i == -1)
       {
@@ -18213,19 +18689,27 @@ void waituntil(int w,int h)
           }
           UpdateWindow();
           break;
-        case 18:                               // Start RTL-TCP server
-          if(CheckRTL()==0)
+        case 18:                               // Start RTL-TCP server or Ryde if installed
+          if (file_exist("/home/pi/ryde/config.yaml") == 1)       // No Ryde
           {
-            rtl_tcp();
+            if(CheckRTL()==0)
+            {
+              rtl_tcp();
+            }
+            else
+            {
+              MsgBox("No RTL-SDR Connected");
+              wait_touch();
+            }
+            setBackColour(0, 0, 0);
+            clearScreen();
+            UpdateWindow();
           }
           else
           {
-            MsgBox("No RTL-SDR Connected");
-            wait_touch();
+            MsgBox2("Starting the Ryde Receiver on HDMI", "Touch Screen to return to Portsdown");
+            cleanexit(197);
           }
-          setBackColour(0, 0, 0);
-          clearScreen();
-          UpdateWindow();
           break;
         case 19:                              // RTL-FM Receiver
           if(CheckRTL()==0)
@@ -18394,6 +18878,10 @@ void waituntil(int w,int h)
             strcpy(LMRXaudio, "rpi");
           }
           SetConfigParam(PATH_LMCONFIG, "audio", LMRXaudio);
+          if (file_exist("/home/pi/ryde/config.yaml") == 0)       // Ryde installed
+          {
+            system("/home/pi/rpidatv/scripts/set_ryde_audio.sh");  // So synchronise Ryde audio
+          }
           Start_Highlights_Menu3();
           UpdateWindow();
           break;
@@ -18495,8 +18983,21 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 5:                               // Open File Explorer
-        case 6:                               // New Directory (not yet implemented)
           FileOperation(i);
+          Start_Highlights_Menu4();
+          UpdateWindow();
+          break;
+        case 6:                               // Install or update Ryde
+          if (file_exist("/home/pi/ryde/config.yaml") == 1)       // Ryde Install or Update
+          {
+            MsgBox4("Installing Ryde", "Portsdown will reboot", "when complete", " ");
+            system("/home/pi/rpidatv/add_ryde.sh");
+          }
+          else
+          {
+            MsgBox4("Updating Ryde", "Portsdown will reboot", "when complete", " ");
+            system("/home/pi/rpidatv/update_ryde.sh");
+          }
           Start_Highlights_Menu4();
           UpdateWindow();
           break;
@@ -18522,6 +19023,11 @@ void waituntil(int w,int h)
         case 11:                               // Play single
         case 12:                               // Play loop
           IQFileOperation(i);
+          Start_Highlights_Menu4();           // Refresh button labels
+          UpdateWindow();
+          break;
+        case 13:                              // mount/unmount USB drive
+          FileOperation(i);
           Start_Highlights_Menu4();           // Refresh button labels
           UpdateWindow();
           break;
@@ -18842,44 +19348,7 @@ void waituntil(int w,int h)
           }
           UpdateWindow();
           break;
-        case 5:                                                 // Button Script 1
-          SelectInGroupOnMenu(CurrentMenu, 5, 9, 5, 1);
-          system("/home/pi/rpidatv/scripts/user_button1.sh &");
-          UpdateWindow();
-          usleep(500000);
-          break;
-        case 6:                                                 // Button Script 2
-          SelectInGroupOnMenu(CurrentMenu, 5, 9, 6, 1);
-          system("/home/pi/rpidatv/scripts/user_button2.sh &");
-          UpdateWindow();
-          usleep(500000);
-          break;
-        case 7:                                                 // SDRPlay MeteorViewer
-          DisplayLogo();
-          cleanexit(150);
-          break;
-        case 8:                                                 // Noise Meter
-          if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0))
-          {
-            DisplayLogo();
-            cleanexit(147);
-          }
-          else
-          {
-            MsgBox("No LimeSDR Connected");
-            wait_touch();
-          }
-          UpdateWindow();
-          break;
-        case 9:                                                 // DMM Display
-          DisplayLogo();
-          cleanexit(142);
-          break;
-        case 10:                                                 // Signal Generator
-          DisplayLogo();
-          cleanexit(130);
-          break;
-        case 11:                                                 // Frequency Sweeper
+        case 5:                                                 // Frequency Sweeper
           if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0))
           {
             DisplayLogo();
@@ -18892,11 +19361,7 @@ void waituntil(int w,int h)
           }
           UpdateWindow();
           break;
-        case 12:                                                 // Power Meter
-          DisplayLogo();
-          cleanexit(137);
-          break;
-        case 13:                                                 // NF Meter
+        case 6:                                                 // Lime Noise Figure Meter
           if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0))
           {
             DisplayLogo();
@@ -18907,6 +19372,61 @@ void waituntil(int w,int h)
             MsgBox("No LimeSDR Connected");
             wait_touch();
           }
+          break;
+        case 7:                                                 // Pluto Noise Figure Meter
+          if(CheckPlutoIPConnect() == 0)
+          {
+            DisplayLogo();
+            cleanexit(148);
+          }
+          else
+          {
+            MsgBox("No Pluto Connected");
+            wait_touch();
+          }
+          UpdateWindow();
+          break;
+        case 8:                                                 // DMM Display
+          DisplayLogo();
+          cleanexit(142);
+          break;
+        case 9:                                                 // SDRPlay MeteorViewer
+          DisplayLogo();
+          cleanexit(150);
+          break;
+        case 10:                                                 // Signal Generator
+          DisplayLogo();
+          cleanexit(130);
+          break;
+        case 11:                                                 // Lime Noise Meter
+          if((CheckLimeMiniConnect() == 0) || (CheckLimeUSBConnect() == 0))
+          {
+            DisplayLogo();
+            cleanexit(147);
+          }
+          else
+          {
+            MsgBox("No LimeSDR Connected");
+            wait_touch();
+          }
+          UpdateWindow();
+          break;
+        case 12:                                                 // Pluto Noise Meter
+          if(CheckPlutoIPConnect() == 0)
+          {
+            DisplayLogo();
+            cleanexit(149);
+          }
+          else
+          {
+            MsgBox("No Pluto Connected");
+            wait_touch();
+          }
+          UpdateWindow();
+          break;
+        case 13:                                                 // Power Meter
+          DisplayLogo();
+          cleanexit(137);
           break;
         case 14:                                                 // XY Display
           DisplayLogo();
@@ -19330,6 +19850,14 @@ void waituntil(int w,int h)
         printf("Button Event %d, Entering Menu 12 Case Statement\n",i);
         switch (i)
         {
+        case 1:                               // Raw IPTS in H264
+          SelectEncoding(i);
+          printf("Raw IPTS in H264\n");
+          break;
+        case 2:                               // Raw IPTS in H265
+          SelectEncoding(i);
+          printf("Raw IPTS in H265\n");
+          break;
         case 4:                               // Cancel
           SelectInGroupOnMenu(CurrentMenu, 4, 4, 4, 1);
           printf("Encoding Cancel\n");
@@ -20456,7 +20984,11 @@ void waituntil(int w,int h)
           Start_Highlights_Menu1();
           UpdateWindow();
           break;
-        case 5:                               // Boot to Portsdown
+        case 0:                               // Boot to Portsdown Test Equip Menu (7)
+        case 1:                               // Boot to Transmit Menu 1, button 20
+        case 2:                               // Boot to Portsdown Receive Menu 8, button 0
+        case 3:                               // Boot to Ryde
+        case 5:                               // Boot to Portsdown Menu 1
         case 6:                               // Boot to Langstone
         case 7:                               // Boot to Band Viewer
         case 8:                               // Boot to Meteor Viewer
@@ -20968,15 +21500,29 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 1:                               // Restore Settings from USB
-          if (file_exist("/media/usb/portsdown_settings/portsdown_config.txt") == 1) // no file found
+          if (USBDriveDevice() == 1)
+          {
+            strcpy(device_name, "/dev/sda1");
+          }
+          else
+          {
+            strcpy(device_name, "/dev/sdb1");
+          }
+          sprintf(linux_cmd, "sudo mount %s /mnt", device_name);
+
+          // mount the USB drive to check drive and files exist first
+          system(linux_cmd);
+          if (file_exist("/mnt/portsdown_settings/portsdown_config.txt") == 1) // no file found
           {
             MsgBox4("Portsdown configuration files", "not found on USB drive.", "Please check the USB drive and", "try reconnecting it");
-            setBackColour(0, 0, 0);
-            clearScreen();
+            sprintf(linux_cmd, "sudo umount %s", device_name);
+            system("sudo umount /dev/sdb1");
             wait_touch();
           }
           else  // file exists
           {
+            sprintf(linux_cmd, "sudo umount %s", device_name);
+            system("sudo umount /dev/sdb1");
             CallingMenu = 431;
             CurrentMenu = 38;
             MsgBox4("Are you sure that you want to", "overwrite all the current settings", "with the settings from USB?", " ");
@@ -20986,9 +21532,7 @@ void waituntil(int w,int h)
         case 2:                               // Restore Settings from /boot
           if (file_exist("/boot/portsdown_settings/portsdown_config.txt") == 1) // no file found
           {
-            MsgBox4("Portsdown configuration files", "not found in /boot folder.", " ", " ");
-            setBackColour(0, 0, 0);
-            clearScreen();
+            MsgBox4("Portsdown configuration files", "not found in /boot folder.", " ", "Touch screen to exit");
             wait_touch();
           }
           else  // file exists
@@ -21047,7 +21591,19 @@ void waituntil(int w,int h)
           MsgBox4("Are you sure that you want to overwrite", "any stored settings on the boot drive", "with the current settings?", " ");
           UpdateWindow();
           break;
-        case 8:
+        case 8:                               // Time overlay on/off
+          if (timeOverlay == false)
+          {
+            timeOverlay = true;
+            SetConfigParam(PATH_PCONFIG, "timeoverlay", "on");
+          }
+          else
+          {
+            timeOverlay = false;
+            SetConfigParam(PATH_PCONFIG, "timeoverlay", "off");
+          }
+          Start_Highlights_Menu43();
+          UpdateWindow();
           break;
         case 9:                               // Toggle enable of hardware shutdown button
           if (file_exist ("/home/pi/.pi-sdn") == 0)  // If enabled
@@ -21379,6 +21935,10 @@ void waituntil(int w,int h)
             strcpy(LMRXaudio, "rpi");
           }
           SetConfigParam(PATH_LMCONFIG, "audio", LMRXaudio);
+          if (file_exist("/home/pi/ryde/config.yaml") == 0)       // Ryde installed
+          {
+            system("/home/pi/rpidatv/scripts/set_ryde_audio.sh");  // So synchronise Ryde audio
+          }
           Start_Highlights_Menu46();
           UpdateWindow();
           break;
@@ -22125,6 +22685,7 @@ void Define_Menu2()
 
   button = CreateButton(2, 18);
   AddButtonStatus(button, "RTL-TCP^Server", &Blue);
+  AddButtonStatus(button, "Ryde^Receiver", &Blue);
 
   button = CreateButton(2, 19);
   AddButtonStatus(button, "RTL-FM^Receiver", &Blue);
@@ -22154,6 +22715,15 @@ void Start_Highlights_Menu2()
   {
     AmendButtonStatus(ButtonNumber(2, 15), 0, "Langstone^Menu", &Blue);
     AmendButtonStatus(ButtonNumber(2, 15), 1, "Langstone^Menu", &Green);
+  }
+
+  if (file_exist("/home/pi/ryde/config.yaml") == 1)       // TCP Server or Ryde
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 18), 0);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 18), 1);
   }
 }
 
@@ -22300,16 +22870,9 @@ void Define_Menu4()
   AddButtonStatus(button, "File^Explorer", &Green);
   AddButtonStatus(button, "File^Explorer", &Grey);
 
-  //button = CreateButton(4, 6);
-  //AddButtonStatus(button, TabVidSource[1], &Blue);
-  //AddButtonStatus(button, TabVidSource[1], &Green);
-  //AddButtonStatus(button, TabVidSource[1], &Grey);
-
-  // Temporary entry to put buttons in a line
-  //button = CreateButton(4, 6);
-  //AddButtonStatus(button, TabVidSource[5], &Blue);
-  //AddButtonStatus(button, TabVidSource[5], &Green);
-  //AddButtonStatus(button, TabVidSource[5], &Grey);
+  button = CreateButton(4, 6);
+  AddButtonStatus(button, "Install^Ryde RX", &Blue);
+  AddButtonStatus(button, "Update^Ryde RX", &Blue);
 
   button = CreateButton(4, 7);
   AddButtonStatus(button, "List Network^Raspberry Pis", &Blue);
@@ -22334,6 +22897,10 @@ void Define_Menu4()
   button = CreateButton(4, 12);
   AddButtonStatus(button, "Play IQ^File in loop", &Blue);
   AddButtonStatus(button, "Play IQ^File in loop", &Grey);
+
+  button = CreateButton(4, 13);
+  AddButtonStatus(button, "Mount USB^Drive", &Blue);
+  AddButtonStatus(button, "Unmount USB^Drive", &Blue);
 
   button = CreateButton(4, 14);
   AddButtonStatus(button, "Download^HamTV IQ File", &Blue);
@@ -22361,6 +22928,15 @@ void Start_Highlights_Menu4()
     SetButtonStatus(ButtonNumber(CurrentMenu, 1), 2);
   }
 
+  if (file_exist("/home/pi/ryde/config.yaml") == 1)       // Ryde Install or Update
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 1);
+  }
+
   if (ValidIQFileSelected == true)
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 11), 0);
@@ -22370,6 +22946,15 @@ void Start_Highlights_Menu4()
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 11), 1);
     SetButtonStatus(ButtonNumber(CurrentMenu, 12), 1);
+  }
+
+  if (USBmounted() == 1)       // USB Drive not mounted
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 13), 0);
+  }
+  else  // mounted
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 13), 1);
   }
 
   if (file_exist("/home/pi/iqfiles/SDRSharp_20160423_121611Z_731000000Hz_IQ.wav") == 0)
@@ -22641,21 +23226,19 @@ void Define_Menu7()
   // 2nd line up Menu 7:  
 
   button = CreateButton(7, 5);
-  AddButtonStatus(button, "Button 1", &Blue);
-  AddButtonStatus(button, "Button 1", &Green);
+  AddButtonStatus(button, "Frequency^Sweeper", &Blue);
 
   button = CreateButton(7, 6);
-  AddButtonStatus(button, "Button 2", &Blue);
-  AddButtonStatus(button, "Button 2", &Green);
+  AddButtonStatus(button, "Noise Figure^Meter (Lime)", &Blue);
 
   button = CreateButton(7, 7);
-  AddButtonStatus(button, "Meteor^Viewer", &Blue);
+  AddButtonStatus(button, "Noise Figure^Meter (Pluto)", &Blue);
 
   button = CreateButton(7, 8);
-  AddButtonStatus(button, "Noise^Meter", &Blue);
+  AddButtonStatus(button, "DMM^Display", &Blue);
 
   button = CreateButton(7, 9);
-  AddButtonStatus(button, "DMM^Display", &Blue);
+  AddButtonStatus(button, "Meteor^Viewer", &Blue);
 
   // 3rd line up Menu 7:
 
@@ -22663,18 +23246,21 @@ void Define_Menu7()
   AddButtonStatus(button, "Signal^Generator", &Blue);
 
   button = CreateButton(7, 11);
-  AddButtonStatus(button, "Frequency^Sweeper", &Blue);
+  AddButtonStatus(button, "Noise^Meter (Lime)", &Blue);
 
   button = CreateButton(7, 12);
-  AddButtonStatus(button, "Power^Meter", &Blue);
+  AddButtonStatus(button, "Noise^Meter (Pluto)", &Blue);
 
   button = CreateButton(7, 13);
-  AddButtonStatus(button, "Noise Figure^Meter", &Blue);
+  AddButtonStatus(button, "Power^Meter", &Blue);
 
   button = CreateButton(7, 14);
   AddButtonStatus(button, "XY^Display", &Blue);
 
   // 4th line up Menu 7: 
+
+  //button = CreateButton(7, 18);
+  //AddButtonStatus(button, "Noise Figure^Meter (Pluto)", &Blue);
 
   // Top of Menu 7
 
@@ -23932,6 +24518,16 @@ void Define_Menu12()
 
   // Bottom Row, Menu 12
 
+  button = CreateButton(12, 1);
+  AddButtonStatus(button, "Raw IPTS in^H264", &Blue);
+  AddButtonStatus(button, "Raw IPTS in^H264", &Green);
+  AddButtonStatus(button, "Raw IPTS in^H264", &Grey);
+
+  button = CreateButton(12, 2);
+  AddButtonStatus(button, "Raw IPTS in^H265", &Blue);
+  AddButtonStatus(button, "Raw IPTS in^H265", &Green);
+  AddButtonStatus(button, "Raw IPTS in^H265", &Grey);
+
   button = CreateButton(12, 4);
   AddButtonStatus(button, "Cancel", &DBlue);
   AddButtonStatus(button, "Cancel", &LBlue);
@@ -23970,22 +24566,37 @@ void Start_Highlights_Menu12()
   if(strcmp(CurrentEncoding, TabEncoding[0]) == 0)
   {
     SelectInGroupOnMenu(12, 5, 9, 5, 1);
+    SelectInGroupOnMenu(12, 1, 2, 5, 1);
   }
   if(strcmp(CurrentEncoding, TabEncoding[1]) == 0)
   {
     SelectInGroupOnMenu(12, 5, 9, 6, 1);
+    SelectInGroupOnMenu(12, 1, 2, 6, 1);
   }
   if(strcmp(CurrentEncoding, TabEncoding[2]) == 0)
   {
     SelectInGroupOnMenu(12, 5, 9, 7, 1);
+    SelectInGroupOnMenu(12, 1, 2, 7, 1);
   }
   if(strcmp(CurrentEncoding, TabEncoding[3]) == 0)
   {
     SelectInGroupOnMenu(12, 5, 9, 8, 1);
+    SelectInGroupOnMenu(12, 1, 2, 8, 1);
   }
   if(strcmp(CurrentEncoding, TabEncoding[4]) == 0)
   {
     SelectInGroupOnMenu(12, 5, 9, 9, 1);
+    SelectInGroupOnMenu(12, 1, 2, 9, 1);
+  }
+  if(strcmp(CurrentEncoding, TabEncoding[5]) == 0)
+  {
+    SelectInGroupOnMenu(12, 5, 9, 1, 1);
+    SelectInGroupOnMenu(12, 1, 2, 1, 1);
+  }
+  if(strcmp(CurrentEncoding, TabEncoding[6]) == 0)
+  {
+    SelectInGroupOnMenu(12, 5, 9, 2, 1);
+    SelectInGroupOnMenu(12, 1, 2, 2, 1);
   }
   GreyOut12();  // Grey out H265 if not available
 }
@@ -25438,7 +26049,7 @@ void Define_Menu31()
   {
     sprintf(Param, "bcallsign%d", i);
     GetConfigParam(PATH_LOCATORS, Param, DispName[i]);
-    DispName[i][8] = '\0';
+    DispName[i][10] = '\0';
     j = i + 5;
     if (i > 4)
     {
@@ -25449,10 +26060,28 @@ void Define_Menu31()
   }
 }
 
+
 void Start_Highlights_Menu31()
 {
-  //
+  int i;
+  int j;
+  char Param[15];
+  char DispName[10][20];
+
+  for(i = 0; i < 10 ;i++)
+  {
+    sprintf(Param, "bcallsign%d", i);
+    GetConfigParam(PATH_LOCATORS, Param, DispName[i]);
+    DispName[i][10] = '\0';
+    j = i + 5;
+    if (i > 4)
+    {
+      j = i - 5;
+    }
+    AmendButtonStatus(ButtonNumber(31, j), 0, DispName[i], &Blue);
+  }
 }
+
 
 void Define_Menu32()
 {
@@ -25616,6 +26245,23 @@ void Define_Menu34()
 
   // Bottom Row, Menu 34
 
+  button = CreateButton(34, 0);
+  AddButtonStatus(button, "Boot to^Test Menu", &Blue);
+  AddButtonStatus(button, "Boot to^Test Menu", &Green);
+
+  button = CreateButton(34, 1);
+  AddButtonStatus(button, "Boot to^Transmit", &Blue);
+  AddButtonStatus(button, "Boot to^Transmit", &Green);
+
+  button = CreateButton(34, 2);
+  AddButtonStatus(button, "Boot to^Receive", &Blue);
+  AddButtonStatus(button, "Boot to^Receive", &Green);
+
+  button = CreateButton(34, 3);
+  AddButtonStatus(button, "Boot to^Ryde RX", &Blue);
+  AddButtonStatus(button, "Boot to^Ryde RX", &Green);
+  AddButtonStatus(button, "Boot to^Ryde RX", &Grey);
+
   button = CreateButton(34, 4);
   AddButtonStatus(button, "Exit", &DBlue);
   AddButtonStatus(button, "Exit", &LBlue);
@@ -25647,8 +26293,60 @@ void Define_Menu34()
 
 void Start_Highlights_Menu34()         // Start-up App
 {
-  if (strcmp(StartApp, "Display_boot") == 0)
+  if (strcmp(StartApp, "Testmenu_boot") == 0)
   {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 1);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0);
+  }
+  else if (strcmp(StartApp, "Transmit_boot") == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 1), 1);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0);
+  }
+  else if (strcmp(StartApp, "Receive_boot") == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 1);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0);
+  }
+  else if (strcmp(StartApp, "Ryde_boot") == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 1);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0);
+  }
+  else if (strcmp(StartApp, "Display_boot") == 0)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 1);
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
@@ -25657,6 +26355,10 @@ void Start_Highlights_Menu34()         // Start-up App
   }
   else if (strcmp(StartApp, "Langstone_boot") == 0)
   {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 1);
     SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
@@ -25665,6 +26367,10 @@ void Start_Highlights_Menu34()         // Start-up App
   }
   else if (strcmp(StartApp, "Bandview_boot") == 0)
   {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 7), 1);
@@ -25673,6 +26379,10 @@ void Start_Highlights_Menu34()         // Start-up App
   }
   else if (strcmp(StartApp, "Meteorview_boot") == 0)
   {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
@@ -25681,6 +26391,10 @@ void Start_Highlights_Menu34()         // Start-up App
   }
   else
   {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0);
     SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0);
@@ -25693,6 +26407,12 @@ void Start_Highlights_Menu34()         // Start-up App
    && (strcmp(langstone_version, "v2pluto") != 0))
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2);
+  }
+
+  // Over-ride if Reyde not installed (set to Grey
+  if (file_exist("/home/pi/ryde/config.yaml") == 1)       // Ryde not installed
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 3), 2);
   }
 }
 
@@ -26252,10 +26972,9 @@ void Define_Menu43()
   AddButtonStatus(button, "Back-up^to /boot", &Blue);
   AddButtonStatus(button, "Back-up^to /boot", &Green);
 
-  //button = CreateButton(43, 8);
-  //AddButtonStatus(button, "7 inch vid^Disabled", &Grey);
-  //AddButtonStatus(button, "7 inch vid^Enabled", &Blue);
-  //AddButtonStatus(button, "7 inch vid^Disabled", &Blue);
+  button = CreateButton(43, 8);
+  AddButtonStatus(button, "Time^Overlay OFF", &Blue);
+  AddButtonStatus(button, "Time^Overlay ON", &Blue);
 
   button = CreateButton(43, 9);
   AddButtonStatus(button, "SD Button^Enabled", &Blue);
@@ -26287,6 +27006,15 @@ void Define_Menu43()
 
 void Start_Highlights_Menu43()
 {
+  if (timeOverlay == false)
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0);
+  }
+  else
+  {
+    SetButtonStatus(ButtonNumber(CurrentMenu, 8), 1);
+  }
+
   if (file_exist ("/home/pi/.pi-sdn") == 0)  // Hardware Shutdown Enabled
   {
     SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0);
@@ -26317,7 +27045,7 @@ void Start_Highlights_Menu43()
   }
   if (strcmp(DisplayType, "Browser") == 0)
   {
-    AmendButtonStatus(ButtonNumber(CurrentMenu, 12), 0, "Browser", &Blue);
+    AmendButtonStatus(ButtonNumber(CurrentMenu, 12), 0, "Browser^HDMI 480p60", &Blue);
     SetButtonStatus(ButtonNumber(CurrentMenu, 14), 2);
   }
   if (strcmp(DisplayType, "hdmi") == 0)
@@ -27096,8 +27824,7 @@ terminate(int dummy)
 
 // main initializes the system and starts Menu 1 
 
-//int main(int argc, char **argv)
-int main(int argc, char *argv[])
+int main(int argc, char **argv)
 {
   int NoDeviceEvent=0;
   wscreen = 800;
@@ -27105,6 +27832,7 @@ int main(int argc, char *argv[])
   int screenXmax, screenXmin;
   int screenYmax, screenYmin;
   int i;
+  int startupmenu = 1;
   char Param[255];
   char Value[255];
   char USBVidDevice[255];
@@ -27127,6 +27855,29 @@ int main(int argc, char *argv[])
   if (wiringPiSetup() < 0)
   {
     return 0;
+  }
+
+  // Check startup request
+  if (argc > 2 )
+  {
+	for ( i = 1; i < argc - 1; i += 2 )
+    {
+      if (strcmp(argv[i], "-b") == 0)
+      {
+        if (strcmp(argv[i + 1], "tx") == 0)
+        {
+          boot_to_tx = true;
+        }
+        else if (strcmp(argv[i + 1], "rx") == 0)
+        {
+          boot_to_rx = true;
+        }
+        else
+        {
+          startupmenu = atoi(argv[i + 1] );
+        }
+      }
+    }
   }
 
   // Initialise all the spi GPIO ports to the correct state
@@ -27186,10 +27937,11 @@ int main(int argc, char *argv[])
      && (strcmp(DisplayType, "hdmi1080") != 0))
     {
       SetConfigParam(PATH_PCONFIG, "webcontrol", "enabled");
-      SetConfigParam(PATH_PCONFIG, "display", "Browser");
+      SetConfigParam(PATH_PCONFIG, "display", "hdmi720");         // Set 720p60 for maximum compatibility
       system ("/home/pi/rpidatv/scripts/set_display_config.sh");
       system ("sudo reboot now");
     }
+    handle_mouse();
   }
 
   // Show Portsdown Logo
@@ -27310,9 +28062,6 @@ int main(int argc, char *argv[])
   // Initialise the LimeRFE if required
   LimeRFEInit();
 
-  // Clear the screen ready for Menu 1
-  setBackColour(255, 255, 255);          // White background
-  clearScreen();
 
   // Initialise web access
 
@@ -27321,8 +28070,26 @@ int main(int argc, char *argv[])
   web_x_ptr = &web_x;
   web_y_ptr = &web_y;
 
-  // Display Menu 1
-  Start_Highlights_Menu1();
+  if (startupmenu == 1)                    // Main Menu
+  {
+    setBackColour(255, 255, 255);          // White background
+    clearScreen();
+    Start_Highlights_Menu1();
+  }
+  else if (startupmenu == 8)               // Receive Menu      
+  {
+    setBackColour(0, 0, 0); 
+    clearScreen();
+    CurrentMenu = startupmenu;
+    Start_Highlights_Menu8();
+  }
+  else
+  {
+    setBackColour(0, 0, 0);          // Black background
+    clearScreen();
+    CurrentMenu = startupmenu;
+    // Note no highlights
+  }
   UpdateWindow();
 
   // Go and wait for the screen to be touched

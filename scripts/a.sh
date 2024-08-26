@@ -1386,6 +1386,8 @@ fi
 
       # Turn the viewfinder off
       v4l2-ctl --overlay=0
+      # Capture for web view after a delay
+      (sleep 1; /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh) &
 
       $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
         -re -loop 1 \
@@ -1408,7 +1410,8 @@ fi
 
       # Create the numbers image in the tempfs folder
       convert -font "FreeSans" -size "${CNGEOMETRY}" xc:white \
-        -gravity North -pointsize 125 -annotate 0,0,0,20 "$CALL" \
+        -gravity NorthWest -pointsize 125 -annotate 0,0,20,20 "$CALL" \
+        -gravity NorthEast -pointsize 30 -annotate 0,0,20,35 "$NUMBERS" \
         -gravity Center -pointsize 225 -annotate 0,0,0,20 "$NUMBERS" \
         -gravity South -pointsize 75 -annotate 0,0,0,20 "$LOCATOR   ""$BAND_LABEL" \
         /home/pi/tmp/contest.jpg
@@ -1420,6 +1423,9 @@ fi
 
       # Turn the viewfinder off
       v4l2-ctl --overlay=0
+
+      # Capture for web view
+      /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh
 
          $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
           -re -loop 1 \
@@ -1443,6 +1449,9 @@ fi
 
       # Turn the viewfinder off
       v4l2-ctl --overlay=0
+
+      # Capture for web view
+      /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh
 
          $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
             -re -loop 1 \
@@ -1478,7 +1487,8 @@ fi
 
       # Create the numbers image in the tempfs folder
       convert -font "FreeSans" -size "${CNGEOMETRY}" xc:white \
-        -gravity North -pointsize 125 -annotate 0,0,0,20 "$CALL" \
+        -gravity NorthWest -pointsize 125 -annotate 0,0,20,20 "$CALL" \
+        -gravity NorthEast -pointsize 30 -annotate 0,0,20,35 "$NUMBERS" \
         -gravity Center -pointsize 225 -annotate 0,0,0,20 "$NUMBERS" \
         -gravity South -pointsize 75 -annotate 0,0,0,20 "$LOCATOR   ""$BAND_LABEL" \
         /home/pi/tmp/contest.jpg
@@ -1526,6 +1536,10 @@ fi
     if [ "$RESULT" -eq 0 ]; then
       sudo modprobe -r bcm2835_v4l2
     fi
+
+    # Capture for web view after a delay
+    (sleep 1; /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh) &
+
     # Set up means to transport of stream out of unit
 
     if [ "$MODULATION" != "DVB-T" ]; then
@@ -1586,7 +1600,7 @@ fi
 
 # *********************************** TRANSPORT STREAM INPUT THROUGH IP ******************************************
 
-  "IPTSIN")
+  "IPTSIN" | "IPTSIN264" | "IPTSIN265")
 
     # Turn off the viewfinder (which would show Pi Cam)
     v4l2-ctl --overlay=0
@@ -1618,8 +1632,29 @@ fi
       esac
 
       # Now generate the stream
+      if [ "$MODE_INPUT" == "IPTSIN" ]; then                        # TS with service info
+        netcat -u -4 -l $UDPINPORT > videots &
 
-      netcat -u -4 -l $UDPINPORT > videots &
+      elif [ "$MODE_INPUT" == "IPTSIN264" ]; then                   # Generate H264 service info for raw TS
+        rpidatv/bin/ffmpeg -probesize 500000 -analyzeduration 500000 -fflags nobuffer -flags low_delay -thread_queue_size 1024 \
+          -i udp:\\\\@:"$UDPINPORT" -ss 2 \
+          -c:v copy -muxrate $BITRATE_TS \
+          -c:a copy -f mpegts \
+          -metadata service_provider="$CHANNEL" -metadata service_name="$CALL" \
+          -mpegts_pmt_start_pid $PIDPMT -streamid 0:"$PIDVIDEO" -streamid 1:"$PIDAUDIO" \
+          -mpegts_service_type "0x19" -mpegts_flags system_b \
+          -muxrate $BITRATE_TS -y $OUTPUT &
+
+      elif [ "$MODE_INPUT" == "IPTSIN265" ]; then                   # Generate H265service info for raw TS
+        rpidatv/bin/ffmpeg -probesize 500000 -analyzeduration 500000 -fflags nobuffer -flags low_delay -thread_queue_size 1024 \
+          -i udp:\\\\@:"$UDPINPORT" -ss 2 \
+          -c:v copy -muxrate $BITRATE_TS \
+          -c:a copy -f mpegts \
+          -metadata service_provider="$CHANNEL" -metadata service_name="$CALL" \
+          -mpegts_pmt_start_pid $PIDPMT -streamid 0:"$PIDVIDEO" -streamid 1:"$PIDAUDIO" \
+          -mpegts_service_type "0x1f" -mpegts_flags system_b \
+          -muxrate $BITRATE_TS -y $OUTPUT &
+      fi
     else  # DVB-T
       case "$MODE_OUTPUT" in
         "PLUTO")
@@ -1989,7 +2024,8 @@ exit
 
       # Create the numbers image in the tempfs folder
       convert -font "FreeSans" -size "${CNGEOMETRY}" xc:white \
-        -gravity North -pointsize 125 -annotate 0,0,0,20 "$CALL" \
+        -gravity NorthWest -pointsize 125 -annotate 0,0,20,20 "$CALL" \
+        -gravity NorthEast -pointsize 30 -annotate 0,0,20,35 "$NUMBERS" \
         -gravity Center -pointsize 225 -annotate 0,0,0,20 "$NUMBERS" \
         -gravity South -pointsize 75 -annotate 0,0,0,20 "$LOCATOR   ""$BAND_LABEL" \
         /home/pi/tmp/contest.jpg
@@ -2042,6 +2078,9 @@ exit
 
   # Turn the viewfinder off
   v4l2-ctl --overlay=0
+
+    # Capture for web view
+    /home/pi/rpidatv/scripts/single_screen_grab_for_web.sh
 
     # If sound arrives first, decrease the numeric number to delay it
     # "-00:00:0.?" works well at SR1000 on IQ mode
