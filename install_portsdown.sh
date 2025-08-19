@@ -10,20 +10,20 @@ if [ $? != 0 ]; then
 fi
 
 # Check which source needs to be loaded
+#GIT_SRC="BritishAmateurTelevisionClub"
 GIT_SRC="Marx1"
-GIT_SRC_BATC="BritishAmateurTelevisionClub"
 GIT_SRC_FILE=".portsdown_gitsrc"
 
-if [ "$1" == "-d" ]; then
-  GIT_SRC="davecrump";
+#if [ "$1" == "-d" ]; then
+#  GIT_SRC="davecrump";
+#  echo
+#  echo "---------------------------------------------------------"
+#  echo "----- Installing NTSC version of Portsdown 4-----"
+#  echo "---------------------------------------------------------"
+#elif [ "$1" == "-u" -a ! -z "$2" ]; then
+#  GIT_SRC="$2"
   echo
-  echo "---------------------------------------------------------"
-  echo "----- Installing Development version of Portsdown 4-----"
-  echo "---------------------------------------------------------"
-elif [ "$1" == "-u" -a ! -z "$2" ]; then
-  GIT_SRC="$2"
-  echo
-  echo "WARNING: Installing ${GIT_SRC} development version, press enter to continue or 'q' to quit."
+  echo "WARNING: Installing Trevor Raty KG6MDW NTSC version, press enter to continue or 'q' to quit."
   read -n1 -r -s key;
   if [[ $key == q ]]; then
     exit 1;
@@ -38,7 +38,7 @@ fi
 
 # Download and install the VLC apt Preferences File 202212090
 cd /home/pi
-wget https://github.com/${GIT_SRC}/portsdown4_NTSC/raw/master/scripts/configs/vlc
+wget https://github.com/${GIT_SRC}/portsdown4/raw/master/scripts/configs/vlc
 sudo cp vlc /etc/apt/preferences.d/vlc
 
 # Update the package manager
@@ -73,7 +73,7 @@ echo "----- Installing Packages -----"
 echo "-------------------------------"
 
 sudo apt-get -y install git cmake libusb-1.0-0-dev libfftw3-dev libxcb-shape0 
-sudo apt-get -y install wiringpi                                              # Wiring pi depracated? 
+sudo apt-get -y install wiringpi                                         # Wiring pi depracated? 
 sudo apt-get -y install libx11-dev buffer libjpeg-dev indent 
 sudo apt-get -y install bc usbmount libvncserver-dev
 sudo apt-get -y install ttf-dejavu-core                                  # being depracated?
@@ -174,7 +174,7 @@ echo
 echo "--------------------------------------------"
 echo "----- Downloading Portsdown 4 Software -----"
 echo "--------------------------------------------"
-wget https://github.com/${GIT_SRC}/portsdown4_NTSC/archive/master.zip
+wget https://github.com/${GIT_SRC}/portsdown4/archive/master.zip
 
 # Unzip the rpidatv software and copy to the Pi
 unzip -o master.zip
@@ -248,7 +248,7 @@ echo "--------------------------------------------------------------"
 
 # Download the previously selected version of avc2ts for Portsdown 4
 cd /home/pi	
-wget https://github.com/${GIT_SRC_BATC}/avc2ts/archive/refs/heads/portsdown4.zip
+wget https://github.com/${GIT_SRC}/avc2ts/archive/refs/heads/portsdown4.zip
 
 # Unzip the avc2ts software and copy to the Pi
 unzip -o portsdown4.zip

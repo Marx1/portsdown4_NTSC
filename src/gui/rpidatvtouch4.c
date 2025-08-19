@@ -11391,7 +11391,7 @@ void CompVidStart()
   if (strcmp(CurrentVidSource, "TCAnim") == 0)
   {
     strcpy(fbicmd, "/home/pi/rpidatv/bin/tcanim1v16 \"/home/pi/rpidatv/video/*10\" ");
-    strcat(fbicmd, " \"720\" \"576\" \"48\" \"72\" \"CQ\" \"CQ CQ CQ de ");
+    strcat(fbicmd, " \"720\" \"480\" \"48\" \"72\" \"CQ\" \"CQ CQ CQ de ");
     strcat(fbicmd, CallSign);
     strcat(fbicmd, " - ATV on ");
     strcat(fbicmd, TabBandLabel[CompVidBand]);
@@ -11408,7 +11408,7 @@ void CompVidStart()
     system("rm /home/pi/tmp/contest.jpg >/dev/null 2>/dev/null");
 
     // Create the new image
-    strcpy(fbicmd, "convert -font \"FreeSans\" -size 720x576 xc:white ");
+    strcpy(fbicmd, "convert -font \"FreeSans\" -size 720x480 xc:white ");
     strcat(fbicmd, "-gravity North -pointsize 125 -annotate 0,0,0,20 ");
     strcat(fbicmd, CallSign); 
     strcat(fbicmd, " -gravity Center -pointsize 200 -annotate 0,0,0,20 ");

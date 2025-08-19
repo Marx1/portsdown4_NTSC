@@ -387,7 +387,7 @@ if [ "$MODE_INPUT" == "CAMMPEG-2" ] || [ "$MODE_INPUT" == "ANALOGMPEG-2" ] \
     VIDEO_FPS=15
   elif [ "$MODE_INPUT" == "CAM16MPEG-2" ] && [ "$BITRATE_VIDEO" -gt 500000 ]; then
     VIDEO_WIDTH=1024
-    VIDEO_HEIGHT=576
+    VIDEO_HEIGHT=576 
     VIDEO_FPS=15
   else
     # Reduce video resolution at low bit rates
@@ -432,7 +432,7 @@ else # h264
 
   # Set the H264 image size
   if [ "$BITRATE_VIDEO" -gt 190000 ]; then  # 333KS FEC 1/2 or better
-    VIDEO_WIDTH=704
+    VIDEO_WIDTH=720
     VIDEO_HEIGHT=480
     VIDEO_FPS=29.97
   else
@@ -603,8 +603,8 @@ case "$MODE_INPUT" in
         VIDEO_WIDTH=1280
         VIDEO_HEIGHT=720
       else
-        VIDEO_WIDTH=768
-        VIDEO_HEIGHT=576
+        VIDEO_WIDTH=854
+        VIDEO_HEIGHT=480
       fi
 
       # Rotate image if required
@@ -657,8 +657,8 @@ case "$MODE_INPUT" in
     else
       # Set the image size depending on bitrate (except for widescreen)
       if [ "$BITRATE_VIDEO" -gt 190000 ]; then  # 333KS FEC 1/2 or better
-        VIDEO_WIDTH=768
-        VIDEO_HEIGHT=576
+        VIDEO_WIDTH=854
+        VIDEO_HEIGHT=480
       else
         VIDEO_WIDTH=384
         VIDEO_HEIGHT=288
@@ -815,7 +815,7 @@ fi
       "STREAMER")
         if [ "$VIDEO_WIDTH" -lt 720 ]; then
           VIDEO_WIDTH=720
-          VIDEO_HEIGHT=576
+          VIDEO_HEIGHT=480
         fi
         if [ "$FORMAT" == "16:9" ]; then
           VIDEO_WIDTH=1024
@@ -1368,7 +1368,7 @@ fi
         fi
       else
         VIDEO_WIDTH=720
-        VIDEO_HEIGHT=576
+        VIDEO_HEIGHT=480
         if [ "$CAPTIONON" == "on" ]; then
           rm /home/pi/tmp/caption.png >/dev/null 2>/dev/null
           rm /home/pi/tmp/tcf2.jpg >/dev/null 2>/dev/null
@@ -1377,7 +1377,7 @@ fi
           IMAGEFILE="/home/pi/tmp/tcf2.jpg"
           sudo fbi -T 1 -noverbose -a /home/pi/tmp/tcf2.jpg >/dev/null 2>/dev/null
         else
-          IMAGEFILE="/home/pi/rpidatv/scripts/images/tcf.jpg"
+          IMAGEFILE="/home/pi/rpidatv/script/images/tcf.jpg"
           sudo fbi -T 1 -noverbose -a /home/pi/rpidatv/scripts/images/tcf.jpg >/dev/null 2>/dev/null
         fi
       fi
@@ -1467,8 +1467,8 @@ fi
 
     # Set the image size depending on bitrate (except for widescreen)
     if [ "$BITRATE_VIDEO" -gt 190000 ]; then  # 333KS FEC 1/2 or better
-      VIDEO_WIDTH=768
-      VIDEO_HEIGHT=576
+      VIDEO_WIDTH=720
+      VIDEO_HEIGHT=480
     else
       VIDEO_WIDTH=384
       VIDEO_HEIGHT=288
@@ -1894,10 +1894,10 @@ fi
       "STREAMER")
         if [ "$VIDEO_WIDTH" -lt 640 ]; then
           VIDEO_WIDTH=720
-          VIDEO_HEIGHT=576
+          VIDEO_HEIGHT=480
         fi
         if [ "$FORMAT" == "16:9" ]; then
-          SCALE="scale=1024:576,"
+          SCALE="scale=853:480,"
         else
           SCALE=""
         fi
@@ -2017,7 +2017,7 @@ exit
       rm /home/pi/tmp/contest.jpg >/dev/null 2>/dev/null
 
       # Set size of contest numbers image up front to save resizing afterwards
-      CNGEOMETRY="720x576"
+      CNGEOMETRY="720x480"
       if [ "$DISPLAY" == "Element14_7" ]; then
         CNGEOMETRY="800x480"
       fi
@@ -2120,7 +2120,7 @@ exit
           VIDEO_HEIGHT=720
         else
           VIDEO_WIDTH=720
-          VIDEO_HEIGHT=576
+          VIDEO_HEIGHT=480
         fi
 
         # No code for beeps here
@@ -2128,7 +2128,7 @@ exit
           $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
             -f image2 -loop 1 \
             -i $IMAGEFILE \
-            -framerate 25 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" -c:v h264_omx -b:v 576k \
+            -framerate 29.97 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" -c:v h264_omx -b:v 576k \
             $VF $CAPTION \
             \
             -f flv $STREAM_URL/$STREAM_KEY &
@@ -2140,7 +2140,7 @@ exit
             -f alsa -ac $AUDIO_CHANNELS -ar $AUDIO_SAMPLE \
             -i hw:$AUDIO_CARD_NUMBER,0 \
             \
-            -framerate 25 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" -c:v h264_omx -b:v 512k \
+            -framerate 29.97 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" -c:v h264_omx -b:v 512k \
             -ar 22050 -ac $AUDIO_CHANNELS -ab 64k            \
             -f flv $STREAM_URL/$STREAM_KEY &
         fi
