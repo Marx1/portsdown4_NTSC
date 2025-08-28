@@ -4,6 +4,7 @@
 
 # Version 202108160
 
+
 ############# SET GLOBAL VARIABLES ####################
 
 PATHRPI="/home/pi/rpidatv/bin"
@@ -402,11 +403,11 @@ if [ "$MODE_INPUT" == "CAMMPEG-2" ] || [ "$MODE_INPUT" == "ANALOGMPEG-2" ] \
   if [ "$MODE_INPUT" == "CAMHDMPEG-2" ] && [ "$BITRATE_VIDEO" -gt 500000 ]; then
     VIDEO_WIDTH=1280
     VIDEO_HEIGHT=720
-    VIDEO_FPS=15
+    VIDEO_FPS=30
   elif [ "$MODE_INPUT" == "CAM16MPEG-2" ] && [ "$BITRATE_VIDEO" -gt 500000 ]; then
     VIDEO_WIDTH=1024
     VIDEO_HEIGHT=576 
-    VIDEO_FPS=15
+    VIDEO_FPS=30
   else
     # Reduce video resolution at low bit rates
     if [ "$BITRATE_VIDEO" -lt 170000 ]; then
@@ -417,26 +418,20 @@ if [ "$MODE_INPUT" == "CAMMPEG-2" ] || [ "$MODE_INPUT" == "ANALOGMPEG-2" ] \
         VIDEO_WIDTH=352
         VIDEO_HEIGHT=288
       else
-        VIDEO_WIDTH=720
+        VIDEO_WIDTH=704
         VIDEO_HEIGHT=$IMAGE_HEIGHT
+        VIDEO_FPS=30
       fi
     fi
     if [ "$BITRATE_VIDEO" -lt 100000 ]; then
       VIDEO_WIDTH=96
       VIDEO_HEIGHT=80
+      VIDEO_FPS=30
     fi
 
-    # Reduce MPEG-2 frame rate at low bit rates
-    if [ "$BITRATE_VIDEO" -lt 150000 ]; then  # was 300000
-      VIDEO_FPS=15
-    else
-      # Switch to 30 fps if required
-      if [ "$IMAGE_HEIGHT" == "480" ]; then
-        VIDEO_FPS=30
-      else
-        VIDEO_FPS=30
-      fi
-    fi
+
+
+
   fi
 else # h264
   if [ "$AUDIO_CHANNELS" != 0 ]; then                 # H264 or H265 with AAC audio
@@ -458,7 +453,7 @@ else # h264
       VIDEO_WIDTH=1280
       VIDEO_HEIGHT=720
       VIDEO_FPS=30
-    elsif [ "$FORMAT" == "1080p" ] ; then
+    elif [ "$FORMAT" == "1080p" ] ; then
       VIDEO_WIDTH=1920
       VIDEO_HEIGHT=1080
       VIDEO_FPS=30
@@ -630,11 +625,11 @@ case "$MODE_INPUT" in
       elif [ "$FORMAT" == "720p" ] ; then
         VIDEO_WIDTH=1280
         VIDEO_HEIGHT=720
-      elsif [ "$FORMAT" == "1080p" ] ; then
+      elif [ "$FORMAT" == "1080p" ] ; then
         VIDEO_WIDTH=1920
         VIDEO_HEIGHT=1080
       else
-        VIDEO_WIDTH=720
+        VIDEO_WIDTH=704
         VIDEO_HEIGHT=480
       fi
 
@@ -681,7 +676,7 @@ case "$MODE_INPUT" in
 
       if [ "$FORMAT" == "16:9" ]; then
         VIDEO_WIDTH=1024
-        VIDEO_HEIGHT=576
+        VIDEO_HEIGHT=480
       elif [ "$FORMAT" == "720p" ] ; then
         VIDEO_WIDTH=1280
         VIDEO_HEIGHT=720
@@ -1404,7 +1399,7 @@ fi
           sudo fbi -T 1 -noverbose -a /home/pi/rpidatv/scripts/images/tcfw16.jpg >/dev/null 2>/dev/null
         fi
       else
-        VIDEO_WIDTH=720
+        VIDEO_WIDTH=704
         VIDEO_HEIGHT=480
         if [ "$CAPTIONON" == "on" ]; then
           rm /home/pi/tmp/caption.png >/dev/null 2>/dev/null
@@ -1443,7 +1438,7 @@ fi
       rm /home/pi/tmp/contest.jpg >/dev/null 2>/dev/null
 
       # Set size of contest numbers image up front to save resizing afterwards
-      CNGEOMETRY="720x576"
+      CNGEOMETRY="704x480"
 
       # Create the numbers image in the tempfs folder
       convert -font "FreeSans" -size "${CNGEOMETRY}" xc:white \
@@ -1504,7 +1499,7 @@ fi
 
     # Set the image size depending on bitrate (except for widescreen)
     if [ "$BITRATE_VIDEO" -gt 190000 ]; then  # 333KS FEC 1/2 or better
-      VIDEO_WIDTH=720
+      VIDEO_WIDTH=704
       VIDEO_HEIGHT=480
     else
       VIDEO_WIDTH=384
@@ -1946,7 +1941,7 @@ fi
     case "$MODE_OUTPUT" in
       "STREAMER")
         if [ "$VIDEO_WIDTH" -lt 640 ]; then
-          VIDEO_WIDTH=720
+          VIDEO_WIDTH=704
           VIDEO_HEIGHT=480
         fi
         if [ "$FORMAT" == "16:9" ]; then
@@ -2070,7 +2065,7 @@ exit
       rm /home/pi/tmp/contest.jpg >/dev/null 2>/dev/null
 
       # Set size of contest numbers image up front to save resizing afterwards
-      CNGEOMETRY="720x480"
+      CNGEOMETRY="704x480"
       if [ "$DISPLAY" == "Element14_7" ]; then
         CNGEOMETRY="800x480"
       fi
@@ -2176,7 +2171,7 @@ exit
           VIDEO_WIDTH=1280
           VIDEO_HEIGHT=720
         else
-          VIDEO_WIDTH=720
+          VIDEO_WIDTH=704
           VIDEO_HEIGHT=480
         fi
 
@@ -2328,8 +2323,8 @@ exit
           VIDEO_HEIGHT=720
           VIDEO_FPS=30
         else
-          v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=720,height=480,pixelformat=0,field=30
-          VIDEO_WIDTH=720
+          v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=704,height=480,pixelformat=0,field=30
+          VIDEO_WIDTH=704
           VIDEO_HEIGHT=480
           VIDEO_FPS=30
         fi
