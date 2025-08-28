@@ -370,30 +370,30 @@ echo "-------------------------------------------------------"
 cd /home/pi
 
 # Delete previous update folder if downloaded in error
-rm -rf portsdown4-master >/dev/null 2>/dev/null
+rm -rf portsdown4_NTSC-master >/dev/null 2>/dev/null
 
 # Download selected source of rpidatv
-wget https://github.com/${GIT_SRC}/portsdown4/archive/master.zip -O master.zip
+wget https://github.com/${GIT_SRC}/portsdown4_NTSC/archive/master.zip -O master.zip
 
 # Unzip and overwrite where we need to
 unzip -o master.zip
-cp -f -r portsdown4-master/bin rpidatv
-cp -f -r portsdown4-master/scripts rpidatv
-cp -f -r portsdown4-master/src rpidatv
+cp -f -r portsdown4_NTSC-master/bin rpidatv
+cp -f -r portsdown4_NTSC-master/scripts rpidatv
+cp -f -r portsdown4_NTSC-master/src rpidatv
 rm -f rpidatv/video/*.jpg
-cp -f -r portsdown4-master/video rpidatv
-cp -f -r portsdown4-master/version_history.txt rpidatv/version_history.txt
-cp -f portsdown4-master/add_langstone.sh rpidatv/add_langstone.sh
-cp -f portsdown4-master/add_langstone2.sh rpidatv/add_langstone2.sh
-cp -f portsdown4-master/add_ryde.sh rpidatv/add_ryde.sh
-cp -f portsdown4-master/update_ryde.sh rpidatv/update_ryde.sh
+cp -f -r portsdown4_NTSC-master/video rpidatv
+cp -f -r portsdown4_NTSC-master/version_history.txt rpidatv/version_history.txt
+cp -f portsdown4_NTSC-master/add_langstone.sh rpidatv/add_langstone.sh
+cp -f portsdown4_NTSC-master/add_langstone2.sh rpidatv/add_langstone2.sh
+cp -f portsdown4_NTSC-master/add_ryde.sh rpidatv/add_ryde.sh
+cp -f portsdown4_NTSC-master/update_ryde.sh rpidatv/update_ryde.sh
 
 # Copy the recently added images into the user's back-up image folder
-cp portsdown4-master/scripts/images/web_not_enabled.png "$PATHUBACKUP"/images/web_not_enabled.png
-cp portsdown4-master/scripts/images/RX_overlay.png "$PATHUBACKUP"/images/RX_overlay.png
+cp portsdown4_NTSC-master/scripts/images/web_not_enabled.png "$PATHUBACKUP"/images/web_not_enabled.png
+cp portsdown4_NTSC-master/scripts/images/RX_overlay.png "$PATHUBACKUP"/images/RX_overlay.png
 
 rm master.zip
-rm -rf portsdown4-master
+rm -rf portsdown4_NTSC-master
 cd /home/pi
 
 DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\n\nXXXXXX----"
