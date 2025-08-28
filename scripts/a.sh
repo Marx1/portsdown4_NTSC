@@ -434,7 +434,7 @@ if [ "$MODE_INPUT" == "CAMMPEG-2" ] || [ "$MODE_INPUT" == "ANALOGMPEG-2" ] \
       if [ "$IMAGE_HEIGHT" == "480" ]; then
         VIDEO_FPS=30
       else
-        VIDEO_FPS=25
+        VIDEO_FPS=30
       fi
     fi
   fi
@@ -448,20 +448,25 @@ else # h264
     let BITRATE_VIDEO=($BITRATE_TS-12000)*725/1000
   fi
 
-  # Set the H264 image size
-  if [ "$BITRATE_VIDEO" -gt 190000 ]; then  # 333KS FEC 1/2 or better
-    VIDEO_WIDTH=720
-    VIDEO_HEIGHT=480
-    VIDEO_FPS=29.97
-  else
-    VIDEO_WIDTH=352
-    VIDEO_HEIGHT=288
-    VIDEO_FPS=25
-  fi
-  if [ "$BITRATE_VIDEO" -lt 100000 ]; then
-    VIDEO_WIDTH=160
-    VIDEO_HEIGHT=120
-  fi
+  # Set the H264 image size based on what the format is. Don't worry about bitrates.
+
+    if [ "$FORMAT" == "16:9" ]; then
+      VIDEO_WIDTH=1024
+      VIDEO_HEIGHT=576
+      VIDEO_FPS=30
+    elif [ "$FORMAT" == "720p" ] ; then
+      VIDEO_WIDTH=1280
+      VIDEO_HEIGHT=720
+      VIDEO_FPS=30
+    elsif [ "$FORMAT" == "1080p" ] ; then
+      VIDEO_WIDTH=1920
+      VIDEO_HEIGHT=1080
+      VIDEO_FPS=30
+    else
+      VIDEO_WIDTH=720
+      VIDEO_HEIGHT=480
+      VIDEO_FPS=29.97
+    fi
 fi
 
 # Set IDRPeriod for avc2ts
@@ -622,11 +627,14 @@ case "$MODE_INPUT" in
       if [ "$FORMAT" == "16:9" ]; then
         VIDEO_WIDTH=1024
         VIDEO_HEIGHT=576
-      elif [ "$FORMAT" == "720p" ] || [ "$FORMAT" == "1080p" ]; then
+      elif [ "$FORMAT" == "720p" ] ; then
         VIDEO_WIDTH=1280
         VIDEO_HEIGHT=720
+      elsif [ "$FORMAT" == "1080p" ] ; then
+        VIDEO_WIDTH=1920
+        VIDEO_HEIGHT=1080
       else
-        VIDEO_WIDTH=854
+        VIDEO_WIDTH=720
         VIDEO_HEIGHT=480
       fi
 
@@ -671,26 +679,20 @@ case "$MODE_INPUT" in
 
     ################# Lime, DATV Express and DVB-T Code #################################
 
-    if [ "$FORMAT" == "16:9" ]; then
-      VIDEO_WIDTH=1024
-      VIDEO_HEIGHT=576
-    elif [ "$FORMAT" == "720p" ] || [ "$FORMAT" == "1080p" ]; then
-      VIDEO_WIDTH=1280
-      VIDEO_HEIGHT=720
-    else
-      # Set the image size depending on bitrate (except for widescreen)
-      if [ "$BITRATE_VIDEO" -gt 190000 ]; then  # 333KS FEC 1/2 or better
-        VIDEO_WIDTH=854
-        VIDEO_HEIGHT=480
+      if [ "$FORMAT" == "16:9" ]; then
+        VIDEO_WIDTH=1024
+        VIDEO_HEIGHT=576
+      elif [ "$FORMAT" == "720p" ] ; then
+        VIDEO_WIDTH=1280
+        VIDEO_HEIGHT=720
+      elif [ "$FORMAT" == "1080p" ] ; then
+        VIDEO_WIDTH=1920
+        VIDEO_HEIGHT=1080
       else
-        VIDEO_WIDTH=384
-        VIDEO_HEIGHT=288
+        VIDEO_WIDTH=720
+        VIDEO_HEIGHT=480
       fi
-      if [ "$BITRATE_VIDEO" -lt 100000 ]; then
-        VIDEO_WIDTH=160
-        VIDEO_HEIGHT=112
-      fi
-    fi
+    
 
     # Free up Pi Camera for direct OMX Coding by removing driver
     sudo modprobe -r bcm2835_v4l2
@@ -1244,12 +1246,12 @@ fi
             v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=640,height=360,pixelformat=0 --set-parm=25
             VIDEO_WIDTH=640
             VIDEO_HEIGHT=360
-            VIDEO_FPS=25
+            VIDEO_FPS=30
           else
             v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=640,height=480,pixelformat=0 --set-parm=25
             VIDEO_WIDTH=640
             VIDEO_HEIGHT=480
-            VIDEO_FPS=25
+            VIDEO_FPS=30
           fi
         else
           v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=352,height=288,pixelformat=0 --set-parm=15
@@ -2315,29 +2317,23 @@ exit
       fi    
 
       # Set Video parameters and control the Cam Link 4K
-      if [ "$BITRATE_VIDEO" -gt 190000 ]; then  # 333KS FEC 1/2 or better
-        if [ "$FORMAT" == "1080p" ]; then
-          v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=1920,height=1080,pixelformat=0,field=25
-            VIDEO_WIDTH=1920
-            VIDEO_HEIGHT=1080
-            VIDEO_FPS=25
-          elif [ "$FORMAT" == "720p" ]; then
-            v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=1280,height=720,pixelformat=0,field=25
-            VIDEO_WIDTH=1280
-            VIDEO_HEIGHT=720
-            VIDEO_FPS=25
-          else
-            v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=800,height=448,pixelformat=0,field=25
-            VIDEO_WIDTH=800
-            VIDEO_HEIGHT=448
-            VIDEO_FPS=25
-          fi
+      if [ "$FORMAT" == "1080p" ]; then
+        v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=1920,height=1080,pixelformat=0,field=30
+          VIDEO_WIDTH=1920
+          VIDEO_HEIGHT=1080
+          VIDEO_FPS=30
+        elif [ "$FORMAT" == "720p" ]; then
+          v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=1280,height=720,pixelformat=0,field=30
+          VIDEO_WIDTH=1280
+          VIDEO_HEIGHT=720
+          VIDEO_FPS=30
         else
-          v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=352,height=288,pixelformat=0,field=25
-          VIDEO_WIDTH=352
-          VIDEO_HEIGHT=288
-          VIDEO_FPS=25
+          v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=720,height=480,pixelformat=0,field=30
+          VIDEO_WIDTH=720
+          VIDEO_HEIGHT=480
+          VIDEO_FPS=30
         fi
+
       fi
 
       SCALE="$VIDEO_WIDTH":"$VIDEO_HEIGHT"
