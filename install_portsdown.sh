@@ -29,13 +29,7 @@ GIT_SRC_FILE=".portsdown_gitsrc"
     exit 1;
   fi
   echo "ok!";
-else
-  echo
-  echo "-------------------------------------------------------------"
-  echo "----- Installing BATC Production version of Portsdown 4 -----"
-  echo "-------------------------------------------------------------"
-fi
-
+  
 # Download and install the VLC apt Preferences File 202212090
 cd /home/pi
 wget https://github.com/${GIT_SRC}/portsdown4/raw/master/scripts/configs/vlc
