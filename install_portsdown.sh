@@ -174,11 +174,11 @@ echo
 echo "--------------------------------------------"
 echo "----- Downloading Portsdown 4 Software -----"
 echo "--------------------------------------------"
-wget https://github.com/${GIT_SRC}/portsdown4/archive/master.zip
+wget https://github.com/${GIT_SRC}/portsdown4_ntsc/archive/master.zip
 
 # Unzip the rpidatv software and copy to the Pi
 unzip -o master.zip
-mv portsdown4-master rpidatv
+mv portsdown4_NTSC-master rpidatv
 rm master.zip
 cd /home/pi
 
