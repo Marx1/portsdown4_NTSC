@@ -30,7 +30,7 @@ https://downloads.raspberrypi.org/raspios_oldstable_lite_armhf/images/raspios_ol
 ```sh
 wget https://raw.githubusercontent.com/Marx1/portsdown4_NTSC/master/install_portsdown.sh
 chmod +x install_portsdown.sh
-./install_portsdown.sh
+./install_portsdown.sh -u Marx1
 ```
 
 The initial build can take between 45 minutes and one hour, however it does not need any user input, so go and make a cup of coffee and keep an eye on the touchscreen.  When the build is finished the Pi will reboot and start-up with the touchscreen menu.
@@ -46,20 +46,5 @@ Then reboot, and try again.  The command asks your RPi to use Google's DNS, not 
 - When it has finished, the installation will reboot and the touchscreen should be activated.  You will need to log in to the console to set up any other displays or advanced options.
 
 
-# Advanced notes
 
-To load the development version, cut and paste in the following lines:
 
-```sh
-wget https://raw.githubusercontent.com/davecrump/portsdown4/master/install_portsdown.sh
-chmod +x install_portsdown.sh
-./install_portsdown.sh -d
-```
-
-To load a version from your own GitHub repo (github.com/your_account/portsdown4), cut, paste and amend the following lines:
-```sh
-wget https://raw.githubusercontent.com/your_account/portsdown4/master/install_portsdown.sh
-chmod +x install_portsdown.sh
-./install_portsdown.sh -u your_account
-```
-The alternative github user account will need to include forks of the portsdown and avc2ts and longmynd repositories.
