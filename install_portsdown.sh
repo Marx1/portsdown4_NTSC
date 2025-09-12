@@ -71,7 +71,13 @@ sudo apt-get -y install wiringpi                                         # Wirin
 sudo apt-get -y install libx11-dev buffer libjpeg-dev indent 
 sudo apt-get -y install bc usbmount libvncserver-dev
 sudo apt-get -y install ttf-dejavu-core                                  # being depracated?
-sudo apt-get -y install fbi netcat imagemagick omxplayer
+sudo apt-get -y install fonts-dejavu-core                                 # Bookworm support
+sudo apt-get -y install fbi  imagemagick 
+sudo apt-get -y install netcat omxplayer                                         #Legacy os 
+
+sudo apt-get -y netcat-traditional                                      #bookworm support
+sudo apt-get -y install libpng-dev
+sudo apt-get -y install libraspberrypi-dev
 sudo apt-get -y install libvdpau-dev libva-dev                           # For latest ffmpeg build
 sudo apt-get -y install libsqlite3-dev libi2c-dev                        # 201811300 Lime
 sudo apt-get -y install sshpass  # 201905090 For Jetson Nano
@@ -80,6 +86,8 @@ sudo apt-get -y install libasound2-dev sox # 201910230 for LongMynd tone and avc
 sudo apt-get -y install libavcodec-dev libavformat-dev libswscale-dev libavdevice-dev # Required for ffmpegsrc.cpp
 sudo apt-get -y install mplayer # 202004300 Used for video monitor and LongMynd (not libpng12-dev)
 sudo apt-get -y install vlc  # Latest version works for Portsdown again as of 202207130
+sudo apt-get -y install ffmpeg  #for bookworm
+
 
 sudo apt-get -y install autoconf libtool # for fdk aac
 
@@ -100,20 +108,28 @@ sudo apt-get -y install arp-scan                                        # For Li
 cd /home/pi
 git clone https://github.com/WiringPi/WiringPi.git
 cd WiringPi
+rm ./debian-template/wiringpi*.deb   #clear any old junk out
 ./build debian
 
+
+# the below section doesn't work. So we're going to cheat and just install everyting from the debian-template directory,
 # Read latest WiringPi version number and install it
-vMaj=`cut -d. -f1 VERSION`
-vMin=`cut -d. -f2 VERSION`
-mv debian-template/wiringpi_"$vMaj"."$vMin"_armhf.deb .
-sudo apt install ./wiringpi_"$vMaj"."$vMin"_armhf.deb
+# vMaj=`cut -d. -f1 VERSION`        
+# vMin=`cut -d. -f2 VERSION`
+#mv debian-template/wiringpi_"$vMaj"."$vMin"_armhf.deb .
+#sudo apt install ./wiringpi_"$vMaj"."$vMin"_armhf.deb
+
+sudo apt install ./debian-template/wiringpi_*.deb
 cd /home/pi
 
 # Install libiio for Pluto SigGen (and Langstone)
 cd /home/pi
 git clone https://github.com/analogdevicesinc/libiio.git
 cd libiio
-git reset --hard b6028fdeef888ab45f7c1dd6e4ed9480ae4b55e3  # Back to Version 0.25
+
+# we're not doing old versions because we have bookworm
+# git reset --hard b6028fdeef888ab45f7c1dd6e4ed9480ae4b55e3  # Back to Version 0.25
+
 cmake ./
 make all
 sudo make install
@@ -188,12 +204,21 @@ cd /home/pi
 # Commit 9c983d872e75214403b7778122e68d920d583add
 echo
 echo "--------------------------------------"
-echo "----- Installing LimeSuite 22.09 -----"
+echo "----- Installing LimeSuite  23.  -----"
 echo "--------------------------------------"
-wget https://github.com/myriadrf/LimeSuite/archive/9c983d872e75214403b7778122e68d920d583add.zip -O master.zip
+#legacy version/code
+# wget https://github.com/myriadrf/LimeSuite/archive/9c983d872e75214403b7778122e68d920d583add.zip -O master.zip
+
+wget https://github.com/myriadrf/LimeSuite/archive/refs/tags/v23.11.0.zip -o master.zip
+
 unzip -o master.zip
-cp -f -r LimeSuite-9c983d872e75214403b7778122e68d920d583add LimeSuite
-rm -rf LimeSuite-9c983d872e75214403b7778122e68d920d583add
+
+mv LimeSuite-23.11.0 LimeSuite
+
+#legacy version/code
+#cp -f -r LimeSuite-9c983d872e75214403b7778122e68d920d583add LimeSuite
+#rm -rf LimeSuite-9c983d872e75214403b7778122e68d920d583add
+
 rm master.zip
 
 # Compile LimeSuite
@@ -221,10 +246,30 @@ echo "------------------------------------------------------"
 echo "----- Downloading LimeSDR Mini Firmware versions -----"
 echo "------------------------------------------------------"
 
+# OLD CODE STUFFS.
+
+
 # Current LimeSDR Mini V1 Version from LimeSuite 22.09 
-mkdir -p /home/pi/.local/share/LimeSuite/images/22.09/
-wget https://downloads.myriadrf.org/project/limesuite/22.09/LimeSDR-Mini_HW_1.2_r1.30.rpd -O \
-               /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_1.2_r1.30.rpd
+#mkdir -p /home/pi/.local/share/LimeSuite/images/22.09/
+#wget https://downloads.myriadrf.org/project/limesuite/22.09/LimeSDR-Mini_HW_1.2_r1.30.rpd -O \
+#               /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_1.2_r1.30.rpd
+
+# DVB-S/S2 Version
+#mkdir -p /home/pi/.local/share/LimeSuite/images/v0.3
+#wget https://github.com/natsfr/LimeSDR_DVBSGateware/releases/download/v0.3/LimeSDR-Mini_lms7_trx_HW_1.2_auto.rpd -O \
+# /home/pi/.local/share/LimeSuite/images/v0.3/LimeSDR-Mini_lms7_trx_HW_1.2_auto.rpd
+
+# Current LimeSDR Mini V2 Version from LimeSuite 23.11 
+#wget https://downloads.myriadrf.org/project/limesuite/23.11/LimeSDR-Mini_HW_2.0_r2.2.bit -O \
+#               /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_2.0_r2.2.bit
+
+
+
+
+# Current LimeSDR Mini V1 Version from LimeSuite 23.11
+mkdir -p /home/pi/.local/share/LimeSuite/images/23.11/
+wget https://downloads.myriadrf.org/project/limesuite/23.11/LimeSDR-Mini_HW_1.2_r1.30.rpd -O \
+               /home/pi/.local/share/LimeSuite/images/23.11/LimeSDR-Mini_HW_1.2_r1.30.rpd
 
 # DVB-S/S2 Version
 mkdir -p /home/pi/.local/share/LimeSuite/images/v0.3
@@ -233,13 +278,16 @@ wget https://github.com/natsfr/LimeSDR_DVBSGateware/releases/download/v0.3/LimeS
 
 # Current LimeSDR Mini V2 Version from LimeSuite 23.11 
 wget https://downloads.myriadrf.org/project/limesuite/23.11/LimeSDR-Mini_HW_2.0_r2.2.bit -O \
-               /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_2.0_r2.2.bit
+               /home/pi/.local/share/LimeSuite/images/23.11/LimeSDR-Mini_HW_2.0_r2.2.bit
+
+
+
 
 # Check that it was downloaded, if not, go to source and get it
 if [[ "$?" != "0" ]]; then
-  rm /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_2.0_r2.2.bit
+  rm /home/pi/.local/share/LimeSuite/images/23.11/LimeSDR-Mini_HW_2.0_r2.2.bit
   wget https://github.com/myriadrf/LimeSDR-Mini-v2_GW/raw/main/LimeSDR-Mini_bitstreams/lms7_trx_impl1.bit -O \
-    /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_2.0_r2.2.bit
+    /home/pi/.local/share/LimeSuite/images/23.11/LimeSDR-Mini_HW_2.0_r2.2.bit
 fi
 
 echo
@@ -247,14 +295,43 @@ echo "--------------------------------------------------------------"
 echo "----- Downloading Portsdown 4 version of avc2ts Software -----"
 echo "--------------------------------------------------------------"
 
+
+#This app is going to be depricated in the NTSC version of portsdown.
+
 # Download the previously selected version of avc2ts for Portsdown 4
 cd /home/pi	
-wget https://github.com/${GIT_SRC}/avc2ts/archive/refs/heads/portsdown4.zip
 
-# Unzip the avc2ts software and copy to the Pi
+#wget https://github.com/${GIT_SRC}/avc2ts/archive/refs/heads/portsdown4.zip
+
+#Pull the code directly form BATC 
+wget https://github.com/BritishAmateurTelevisionClub/avc2ts/archive/refs/heads/portsdown4.zip
+
+#Legacy code
+# Unzip the avc2ts software and copy to the Pi  
 unzip -o portsdown4.zip
 mv avc2ts-portsdown4 avc2ts
 rm portsdown4.zip
+
+
+
+
+#since the following isn't in use yet, and it breaks on the pi4+ remove it.
+
+#libyuv should be used for fast picture transformation : not yet implemented
+#git clone https://chromium.googlesource.com/libyuv/libyuv
+#cd libyuv
+#should patch linux.mk with -DHAVE_JPEG on CXX and CFLAGS
+#seems to be link with libjpeg9-dev
+#make V=1 -f linux.mk
+#cd ../
+
+# Required for ffmpegsrc.cpp
+sudo apt-get -y install libvncserver-dev libavcodec-dev libavformat-dev libswscale-dev libavdevice-dev
+
+
+
+
+
 
 # Compile rpidatv gui
 echo
@@ -295,12 +372,12 @@ sudo ldconfig
 cd ../
 
 #libyuv should be used for fast picture transformation : not yet implemented
-git clone https://chromium.googlesource.com/libyuv/libyuv
-cd libyuv
+#git clone https://chromium.googlesource.com/libyuv/libyuv
+#cd libyuv
 #should patch linux.mk with -DHAVE_JPEG on CXX and CFLAGS
 #seems to be link with libjpeg9-dev
-make V=1 -f linux.mk
-cd ../
+#make V=1 -f linux.mk
+#cd ../
 
 # Make avc2ts
 cd /home/pi/avc2ts

@@ -73,7 +73,7 @@ Rewitten by Dave, G8GKQ
 #define rad2deg(RAD) ((RAD)*180/PI)
 #define DELIM "."
 
-char ImageFolder[63]="/home/pi/rpidatv/image/";
+char ImageFolder[64]="/home/pi/rpidatv/image/";
 
 int fd = 0;                           // File Descriptor for touchscreen touch messages
 int wscreen, hscreen;
@@ -158,7 +158,7 @@ int debug_level = 0; // 0 minimum, 1 medium, 2 max
 int MicLevel = 26;   // 1 to 30.  default 26
 
 char ScreenState[255] = "NormalMenu";  // NormalMenu SpecialMenu TXwithMenu TXwithImage RXwithImage VideoOut SnapView VideoView Snap SigGen
-char MenuTitle[50][127];
+char MenuTitle[50][128];
 
 // Band details to be over-written by values from from portsdown_config.txt:
 char TabBand[16][3] = {"d1", "d2", "d3", "d4", "d5", "t1", "t2", "t3", "t4", "t0", "t5", "t6", "t7", "t8", "d0", "d6"};
@@ -208,9 +208,9 @@ char CurrentCaptionState[15] = "on";
 char CurrentAudioState[255] = "auto";
 char CurrentAtten[255] = "NONE";
 int  CurrentBand = 2; // 0 thru 15
-char KeyboardReturn[64];
+char KeyboardReturn[128];
 char FreqBtext[31];
-char MenuText[5][63];
+char MenuText[5][64];
 char Guard[7];
 char DVBTQAM[7];
 char CurrentPiCamOrientation[15] = "normal";
@@ -232,8 +232,8 @@ int ImageRange = 5;         // Number of Test Cards
 
 // Test Card switching variables
 int CurrentTestCard = 0;   // Test Card F
-char TestCardName[12][63] = {"tcfm", "tcc", "pm5544", "75cb", "11g"}; 
-char TestCardTitle[12][63];
+char TestCardName[12][64] = {"tcfm", "tcc", "pm5544", "75cb", "11g"}; 
+char TestCardTitle[12][64];
 
 // RTL FM Parameters. [0] is current
 char RTLfreq[10][15];       // String with frequency in MHz
@@ -285,14 +285,14 @@ bool timeOverlay = false;    // Display time overlay on received metadata and sn
 time_t t;                    // current time
 
 // Stream Display Parameters. [0] is current
-char StreamAddress[9][127];  // Full rtmp address of stream
+char StreamAddress[9][128];  // Full rtmp address of stream
 char StreamLabel[9][31];     // Button Label for stream
 int IQAvailable = 1;         // Flag set to 0 if RPi audio output has been used
 int StreamStoreTrigger = 0;  // Set to 1 if stream amendment needed
 char StreamPlayer[7] = "OMX";// set to VLC if VLC viewer button is pressed
 
 // Stream Output Parameters. [0] is current
-char StreamURL[9][127];      // Full rtmp address of stream server (except for key)
+char StreamURL[9][128];      // Full rtmp address of stream server (except for key)
 char StreamKey[9][31];       // streamname-key for stream
 int StreamerStoreTrigger = 0;   // Set to 1 if streamer amendment needed
 
@@ -300,13 +300,13 @@ int StreamerStoreTrigger = 0;   // Set to 1 if streamer amendment needed
 char UDPOutAddr[31];
 char UDPOutPort[31];
 char UDPInPort[31];
-char TSVideoFile[63];
+char TSVideoFile[64];
 
 // File menu parameters
 char CurrentPathSelection[255] = "/home/pi/";
 char CurrentFileSelection[255] = "";
-char YesButtonCaption[63] = "Yes";
-char NoButtonCaption[63] = "No";
+char YesButtonCaption[64] = "Yes";
+char NoButtonCaption[64] = "No";
 bool ValidIQFileSelected = false;
 
 // Range and Bearing Calculator Parameters
@@ -346,9 +346,9 @@ char QOFreqButts[10][31] = {"10494.75^2405.25", "10495.25^2405.75", "10495.75^24
                             "10497.25^2407.75", "10497.75^2408.25", "10498.25^2408.75", "10498.75^2409.25", "10499.25^2409.75"};
 
 // Langstone Integration variables
-char StartApp[63];            // Startup app on boot
-char PlutoIP[63];             // Portsdown Pluto IP address
-char LangstonePlutoIP[63];    // Langstone Pluto IP address
+char StartApp[64];            // Startup app on boot
+char PlutoIP[64];             // Portsdown Pluto IP address
+char LangstonePlutoIP[64];    // Langstone Pluto IP address
 char langstone_version[31] = "none";
 
 
@@ -549,11 +549,12 @@ void UpdateWindow();
 void ApplyTXConfig();
 void EnforceValidTXMode();
 void EnforceValidFEC();
-int ListFilestoArray(char Path[255], int FirstFile, int LastFile, char FileArray[100][255], char FileTypeArray[101][2]);
+// Declaration (line 552)
+int ListFilestoArray(char *Path, int FirstFile, int LastFile, char FileArray[101][255], char FileTypeArray[101][2]);
 int SelectFileUsingList(char *InitialPath, char *InitialFile, char *SelectedPath, char *SelectedFile, int directory);
-int SelectFromList(int CurrentSelection, char ListEntry[100][63], int ListLength);
+int SelectFromList(int CurrentSelection, char ListEntry[100][64], int ListLength);
 int CheckWifiEnabled();
-int CheckWifiConnection(char Network_SSID[63]);
+int CheckWifiConnection(char Network_SSID[64]);
 void WiFiConfig(int NoButton);
 void GreyOut1();
 void GreyOutReset11();
@@ -619,7 +620,7 @@ void DisplayStream(int NoButton);
 void DisplayStreamVLC(int NoButton);
 void AmendStreamPreset(int NoButton);
 void SelectStreamer(int NoButton);
-void SeparateStreamKey(char streamkey[127], char streamname[63], char key[63]);
+void SeparateStreamKey(char streamkey[128], char streamname[64], char key[64]);
 void AmendStreamerPreset(int NoButton);
 void checkTunerSettings();
 void LMRX(int NoButton);
@@ -648,7 +649,7 @@ void do_Langstone();
 void do_video_monitor(int button);
 void MonitorStop();
 void IPTSConfig(int NoButton);
-void Keyboard(char RequestText[64], char InitText[64], int MaxLength);
+void Keyboard(char RequestText[128], char InitText[128], int MaxLength);
 void ChangePresetFreq(int NoButton);
 void ChangeLMPresetFreq(int NoButton);
 void ChangePresetSR(int NoButton);
@@ -1310,7 +1311,7 @@ void GetLatestVers(char LatestVersion[256])
 int CheckGoogle()
 {
   FILE *fp;
-  char response[127];
+  char response[128];
 
   /* Open the command for reading. */
   fp = popen("ping 8.8.4.4 -c1 | head -n 5 | tail -n 1 | grep -o \"1 received,\" | head -c 11", "r");
@@ -1348,8 +1349,8 @@ int CheckGoogle()
 int CheckJetson()
 {
   FILE *fp;
-  char response[127];
-  char pingcommand[127];
+  char response[128];
+  char pingcommand[128];
   
   strcpy(pingcommand, "timeout 0.1 ping ");
   GetConfigParam(PATH_JCONFIG, "jetsonip", response);
@@ -1508,7 +1509,7 @@ void DisplayUpdateMsg(char* Version, char* Step)
 
 void PrepSWUpdate()
 {
-  char CurrentVersion[255];
+  char CurrentVersion[256];
   char LatestVersion[255];
   char CurrentVersion9[10];
   char LatestVersion9[10];
@@ -1870,7 +1871,7 @@ void GetThrottled(char Throttled[256])
 void SetAudioLevels()
 {
   char MicGain[15];
-  char aMixerCmd[127];
+  char aMixerCmd[128];
   int MicLevelPercent;
 
   // Read the mic gain (may not be defined)
@@ -2257,9 +2258,9 @@ void ReadModeInput(char coding[256], char vsource[256])
 void ReadModeOutput(char Moutput[256])
 {
   char ModeOutput[255];
-  // char LimeCalFreqText[63];
-  char LimeRFEStateText[63];
-  char LimeUpsampleText[63];
+  // char LimeCalFreqText[64];
+  char LimeRFEStateText[64];
+  char LimeUpsampleText[64];
 
   GetConfigParam(PATH_PCONFIG,"modeoutput", ModeOutput);
   strcpy(CurrentModeOP, ModeOutput);
@@ -2447,7 +2448,7 @@ void ReadCaptionState()
 
 void ReadTestCardState()
 {
-  char Value[63];
+  char Value[64];
   GetConfigParam(PATH_TC_CONFIG, "card", Value);
   CurrentTestCard = atoi(Value);
   if ((CurrentTestCard < 0) || (CurrentTestCard > 11))
@@ -2861,7 +2862,7 @@ void GetSerNo(char SerNo[256])
 
 int CalcTSBitrate()
 {
-  char Value[127] = " ";
+  char Value[128] = " ";
   float Bitrate = 0;
   int BitrateK = 0;
   int guard = 32;
@@ -3252,7 +3253,7 @@ int DetectLogitechWebcam()
 {
   char shell_command[255];
   // Pattern for C270, C310, C525 and C910
-  char DMESG_PATTERN[63] = "046d:0825|046d:081b|Webcam C525|046d:0821";
+  char DMESG_PATTERN[64] = "046d:0825|046d:081b|Webcam C525|046d:0821";
   FILE * shell;
   sprintf(shell_command, "dmesg | grep -E -q \"%s\"", DMESG_PATTERN);
   shell = popen(shell_command, "r");
@@ -3669,9 +3670,9 @@ int CheckMuntjac()
 
 int RegisterMuntjac()
 {
-  char MuntjacSerial[127];
+  char MuntjacSerial[128];
   FILE *fp;
-  char GrepCommand[127];
+  char GrepCommand[128];
   char GrepResponse[255];
   char AppendCommand[300];
 
@@ -3841,7 +3842,7 @@ void SaveRTLPreset(int PresetButton)
 {
   char Param[255];
   char Value[255];
-  char Prompt[63];
+  char Prompt[64];
   int index;
   int Spaces;
   int j;
@@ -4374,8 +4375,8 @@ void ChangeLMRXIP()
 
 void ChangeLMRXPort()
 {
-  char RequestText[63];
-  char InitText[63];
+  char RequestText[64];
+  char InitText[64];
   bool IsValid = FALSE;
   char LMRXPort[15];
 
@@ -4781,7 +4782,7 @@ void RTLstop()
 void ReadStreamPresets()
 {
   int n;
-  char Value[127] = "";
+  char Value[128] = "";
   char Param[20];
 
   // Read in Stream Receive presets
@@ -4965,7 +4966,7 @@ int DetectUSBAudio()
 {
   char shell_command[255];
   // Pattern for USB Audio Dongle; others can be added with |xxxx
-  char DMESG_PATTERN[63] = "USB Audio";
+  char DMESG_PATTERN[64] = "USB Audio";
   FILE * shell;
   sprintf(shell_command, "aplay -l | grep -E -q \"%s\"", DMESG_PATTERN);
   shell = popen(shell_command, "r");
@@ -5156,7 +5157,7 @@ int CheckLimeUSBConnect()
 int CheckPlutoConnect()
 {
   FILE *fp;
-  char response[127];
+  char response[128];
 
   /* Open the command for reading. */
   fp = popen("timeout 0.2 ping pluto.local -c1 | head -n 5 | tail -n 1 | grep -o \"1 received,\" | head -c 11", "r");
@@ -5194,8 +5195,8 @@ int CheckPlutoConnect()
 int CheckPlutoIPConnect()
 {
   FILE *fp;
-  char response[127];
-  char plutoping[127];
+  char response[128];
+  char plutoping[128];
 
   strcpy(plutoping, "timeout 0.2 ping ");
   strcat(plutoping, PlutoIP);
@@ -5271,8 +5272,8 @@ int CheckPlutoUSBConnect()
 int GetPlutoXO()
 {
   FILE *fp;
-  char response[127];
-  char XOtext[63];
+  char response[128];
+  char XOtext[64];
   int XO = 40000000;
 
   /* Open the command for reading. */
@@ -5320,8 +5321,8 @@ int GetPlutoXO()
 int GetPlutoAD()
 {
   FILE *fp;
-  char response[127];
-  char ADtext[63];
+  char response[128];
+  char ADtext[64];
   int AD = 0;
 
   /* Open the command for reading. */
@@ -5368,7 +5369,7 @@ int GetPlutoAD()
 int GetPlutoCPU()
 {
   FILE *fp;
-  char response[127];
+  char response[128];
   char CPUtext[15];
   int cpu = 0;
 
@@ -6002,9 +6003,9 @@ void LimeUtilInfo()
 
 void SetLimeUpsample()
 {
-  char Prompt[63];
-  char CurrentValue[63];
-  char Value[63];
+  char Prompt[64];
+  char CurrentValue[64];
+  char Value[64];
   int EnteredValue = 0;
 
   snprintf(CurrentValue, 30, "%d", LimeUpsample);
@@ -6195,7 +6196,7 @@ void ListText(char *TextPath, char *TextFile)
   FILE *fp;
   char ListCommand[1023];
   char response[255];
-  char TextArray[101][63];
+  char TextArray[101][64];
   int LineCount = 1;           // Start at 1, as 0 is the title
 
   // Clear the TextArray
@@ -6663,11 +6664,11 @@ void IQFileOperation(int NoButton)
   char NewPathSelection[255] = "";
   char NewFileSelection[255] = "";
   char FileCommand[1279];
-  char Value[63];
-  char Value2[63];
+  char Value[64];
+  char Value2[64];
   char ShortValue[7];
   char ShortValue2[7];
-  char FrequencyLine[127];
+  char FrequencyLine[128];
 
   strcpy(CurrentPathSelection, "/home/pi/iqfiles/");
 
@@ -6780,8 +6781,8 @@ void ListUSBDevices()
   int i;
   FILE *fp;
   char response[255];
-  char DeviceArray[101][63];
-  char DeviceTest[63];
+  char DeviceArray[101][64];
+  char DeviceTest[64];
   int LineCount = 1;           // Start at 1, as 0 is the title
 
   // Clear the DeviceArray
@@ -6833,7 +6834,7 @@ void ListNetDevices()
   int i;
   FILE *fp;
   char response[255];
-  char NetworkArray[101][63];
+  char NetworkArray[101][64];
   int LineCount = 1;           // Start at 1, as 0 is the title
 
   // Clear the NetworkArray
@@ -6878,7 +6879,7 @@ void ListNetPis()
   int i;
   FILE *fp;
   char response[255];
-  char NetworkArray[101][63];
+  char NetworkArray[101][64];
   int LineCount = 1;           // Start at 1, as 0 is the title
 
   // Clear the NetworkArray
@@ -8663,7 +8664,7 @@ int ListFilestoArray(char *Path, int FirstFile, int LastFile, char FileArray[101
 int SelectFileUsingList(char *InitialPath, char *InitialFile, char *SelectedPath, char *SelectedFile, int directory)
 {
   int NumberofFiles;
-  char DisplayFileList[101][63];
+  char DisplayFileList[101][64];
   char FileArray[101][255];
   char FileTypeArray[101][2];
   char shortfilename[255];
@@ -8874,7 +8875,7 @@ int SelectFileUsingList(char *InitialPath, char *InitialFile, char *SelectedPath
  * @param (int) CurrentSelection:  -1 list only, selection not possible
  *                                 0  No current selection, returns 0
  *                                 1 - 100 initial selection for highlighting
- *        char ListEntry[101][63]: [0] is title 
+ *        char ListEntry[101][64]: [0] is title 
  *                                 [1] - [100] are list entries
  *        int ListLength:          Number of entries to display
  *
@@ -8883,9 +8884,9 @@ int SelectFileUsingList(char *InitialPath, char *InitialFile, char *SelectedPath
  *               Select with no highlighted selection returns 0
 *******************************************************************************/
 
-int SelectFromList(int CurrentSelection, char ListEntry[101][63], int ListLength)
+int SelectFromList(int CurrentSelection, char ListEntry[101][64], int ListLength)
 {
-  char TableNumberText[7];
+  char TableNumberText[12];
   int ButtonWidth = 160;
   int ButtonHeight = 65;
   char Button1Caption[15] = "Previous Page";
@@ -8918,7 +8919,7 @@ int SelectFromList(int CurrentSelection, char ListEntry[101][63], int ListLength
   int j;
   int CurrentPage;
   int PageCount;
-  char PageText[63];
+  char PageText[64];
   int SelectedEntry;
   int TopEntry;
   int BottomEntry;
@@ -9179,7 +9180,7 @@ int CheckWifiEnabled()
 }
 
 
-int CheckWifiConnection(char Network_SSID[63])
+int CheckWifiConnection(char Network_SSID[64])
 {
   // Returns 0 if WiFi connected with SSID, 1 if not
 
@@ -9219,17 +9220,17 @@ int CheckWifiConnection(char Network_SSID[63])
 
 void WiFiConfig(int NoButton)
 {
-  char ListEntry[101][63];
+  char ListEntry[101][64];
   int CurrentSelection = 0;
   int ListLength = 0;
   FILE *fp;
   char response_line[255];
   int j;
   int NewSelection = 0;
-  char PassPhrase[63];
-  char Prompt[127];
+  char PassPhrase[64];
+  char Prompt[128];
   char SystemCommand[255];
-  char Network_SSID[63];
+  char Network_SSID[64];
   char wlan0IPAddress[255];
 
   strcpy(ListEntry[0], "Empty List Title");
@@ -10218,11 +10219,11 @@ void SelectCaption(int NoButton)  // Caption on or off
 void ChangeTestCard(int NoButton)  // Change Test Card Selection
 {
   int NewTestCard;
-  char NewFileName[127];
-  char NewFileNamew16[127];
-  char NewFileNamew[127];
+  char NewFileName[128];
+  char NewFileNamew16[128];
+  char NewFileNamew[128];
   char CopyCommand[255];
-  char Value[63];
+  char Value[64];
 
   // Convert button number into test card number
   switch(NoButton)
@@ -10328,7 +10329,7 @@ void ChangeTestCard(int NoButton)  // Change Test Card Selection
 
 void SelectSTD(int NoButton)  // PAL or NTSC
 {
-  char USBVidDevice[255];
+  char USBVidDevice[256];
   char Param[255];
   char SetStandard[255];
   SelectInGroupOnMenu(CurrentMenu, 8, 9, NoButton, 1);
@@ -10407,7 +10408,7 @@ void ChangeBandDetails(int NoButton)
 {
   char Param[31];
   char Value[31];
-  char Prompt[63];
+  char Prompt[64];
   float AttenLevel = 1;
   int ExpLevel = -1;
   int ExpPorts = -1;
@@ -10419,7 +10420,7 @@ void ChangeBandDetails(int NoButton)
   int PlutoLevel = 1;
   float LO = 1000001;
   char Numbers[10] ="";
-  char TexttoSave[63];
+  char TexttoSave[64];
   char ActualValue[31];
   int band = 0;
 
@@ -11093,7 +11094,7 @@ void SelectAtten(int NoButton)  // Attenuator Type
 
 void SetAttenLevel()
 {
-  char Prompt[63];
+  char Prompt[64];
   char Value[31];
   char Param[15];
   float AttenLevel = 1;
@@ -11122,9 +11123,9 @@ void SetAttenLevel()
 
 void SetDeviceLevel()
 {
-  char Prompt[63];
-  char Value[31];
-  char Param[15];
+  char Prompt[64];
+  char Value[128];
+  char Param[16];
   int ExpLevel = -1;
   int LimeGain = -1;
   int MuntjacGain = -1;
@@ -11210,8 +11211,8 @@ void AdjustVLCVolume(int adjustment)
   int VLCVolumePerCent;
   static int premuteVLCVolume;
   static bool muted;
-  char VLCVolumeText[63];
-  char VolumeMessageText[63];
+  char VLCVolumeText[64];
+  char VolumeMessageText[64];
   char VLCVolumeCommand[255];
 
   if (adjustment == -512) // toggle mute
@@ -11270,7 +11271,7 @@ void SetReceiveLOFreq(int NoButton)
   char Param[31];
   char Value[31];
   char Value14[15];
-  char Prompt[63];
+  char Prompt[64];
   int band;
 
   // Convert button number to band number
@@ -11318,7 +11319,7 @@ void SavePreset(int PresetButton)
 {
   char Param[255];
   char Value[255];
-  char Prompt[63];
+  char Prompt[64];
 
   // Read the Preset Label and ask for a new value
   snprintf(Prompt, 62, "Enter the new label for Preset %d:", PresetButton + 1);
@@ -11485,7 +11486,7 @@ void ReceiveLOStart()
 {
   char Param[15];
   char Value[15];
-  char bashCall[127];
+  char bashCall[128];
 
   strcpy(Param, TabBand[CurrentBand]);
   strcat(Param, "lo");
@@ -12223,7 +12224,7 @@ int CheckStream()
   // else return 3
 
   FILE *fp;
-  char response[127] = "";
+  char response[128] = "";
 
   fp = popen("cat /home/pi/tmp/stream_status.txt 2>/dev/null", "r");
   if (fp == NULL)
@@ -12269,7 +12270,7 @@ int CheckVLCStream()
   // else return 3
 
   FILE *fp;
-  char response[127] = "";
+  char response[128] = "";
 
   fp = popen("cat /home/pi/tmp/stream_status.txt 2>/dev/null", "r");
   if (fp == NULL)
@@ -12309,7 +12310,7 @@ void DisplayStream(int NoButton)
   int StreamStatus;
   int count;
   char startCommand[255];
-  char WaitMessage[63];
+  char WaitMessage[64];
 
   if(NoButton < 5) // bottom row
   {
@@ -12413,7 +12414,7 @@ void DisplayStreamVLC(int NoButton)
   int NoPreset;
   int StreamStatus;
   char startCommand[255];
-  char WaitMessage[63];
+  char WaitMessage[64];
 
   if(NoButton < 5) // bottom row
   {
@@ -12516,7 +12517,7 @@ void AmendStreamPreset(int NoButton)
   char Param[255];
   char Value[255];
   char TestValue[255];
-  char Prompt[63];
+  char Prompt[64];
 
   if(NoButton < 5) // bottom row
   {
@@ -12594,10 +12595,10 @@ void SelectStreamer(int NoButton)
   printf("\nStream separation test **************************\n\n");
   printf("Test input = \'g8gkq-abcxyz\'\n");
   printf("Streamname Output = \'%s\'\n", Param);
-  printf("Key Output = \'%s\'\n\n", Value);void SeparateStreamKey(char streamkey[127], char streamname[63], char key[63])
+  printf("Key Output = \'%s\'\n\n", Value);void SeparateStreamKey(char streamkey[128], char streamname[64], char key[64])
 */
 
-void SeparateStreamKey(char streamkey[127], char streamname[63], char key[63])
+void SeparateStreamKey(char streamkey[128], char streamname[64], char key[64])
 {
   int n;
   char delimiter[1] = "-";
@@ -12646,9 +12647,9 @@ void AmendStreamerPreset(int NoButton)
   int NoPreset;
   char Param[255];
   char Value[255];
-  char streamname[63];
-  char key[63];
-  char Prompt[63];
+  char streamname[128];
+  char key[64];
+  char Prompt[128];
 
   // Map button numbering
   if(NoButton < 5) // bottom row
@@ -12765,25 +12766,25 @@ void LMRX(int NoButton)
   float FREQ;
   int STATE = 0;
   int SR;
-  char Value[63];
+  char Value[64];
   bool Overlay_displayed = false;
 
   // To be Global Paramaters:
 
   char status_message_char[14];
   char stat_string[255];
-  char udp_string[63];
-  char MERtext[63];
-  char MERNtext[63];
-  char STATEtext[63];
-  char FREQtext[63];
-  char SRtext[63];
+  char udp_string[64];
+  char MERtext[64];
+  char MERNtext[64];
+  char STATEtext[64];
+  char FREQtext[64];
+  char SRtext[64];
   char ServiceProvidertext[255] = " ";
   char Servicetext[255] = " ";
 
-  char FECtext[63] = " ";
-  char Modulationtext[63] = " ";
-  char Encodingtext[63] = " ";
+  char FECtext[64] = " ";
+  char Modulationtext[64] = " ";
+  char Encodingtext[64] = " ";
   char vlctext[255];
   char AGCtext[255];
   char AGC1text[255];
@@ -12798,13 +12799,13 @@ void LMRX(int NoButton)
   bool webupdate_this_time = true;   // Only update web on alternate MER changes
   char LastServiceProvidertext[255] = " ";
   bool FirstReceive = true;
-  char TIMEtext[63];
+  char TIMEtext[64];
 
   // DVB-T parameters
 
   char line3[31] = "";
   char line4[31] = "";
-  char line5[127] = "";
+  char line5[128] = "";
   char line6[31] = "";
   char line7[31] = "";
   char line8[31] = "";
@@ -12814,11 +12815,11 @@ void LMRX(int NoButton)
   char line12[31] = "";
   char line13[31] = "";
   char line14[31] = "";
-  char linex[127] = "";
+  char linex[128] = "";
   uint16_t TunerPollCount = 0;
   bool TunerFound = FALSE;
 
-  char ExtraText[63];
+  char ExtraText[64];
 
   // Set globals
   FinishedButton = 1;
@@ -14781,8 +14782,8 @@ void InfoScreen()
   char result[255];
   char result2[255] = " ";
   int fec = 0;
-  char FECtext[127];
-  char TIMEtext[63];
+  char FECtext[128];
+  char TIMEtext[64];
 
   // Look up and format all the parameters to be displayed
 
@@ -14795,7 +14796,7 @@ void InfoScreen()
   strftime(TIMEtext, sizeof(TIMEtext), "%H:%M:%S UTC %d %b %Y", gmtime(&t));
   strcpy(dateTime, TIMEtext);
 
-  char ipaddress[255] = "IP: ";
+  char ipaddress[256] = "IP: ";
   strcpy(result, "Not connected");
   GetIPAddr(result);
   strcat(ipaddress, result);
@@ -15009,7 +15010,7 @@ void RangeBearing()
   int Range[10];
   int i, j;
   int offset;
-  char Prompt[63];
+  char Prompt[64];
   bool IsValid = FALSE;
 
   // read which entry is currently top of the list
@@ -15215,7 +15216,7 @@ void AmendBeacon(int i)
 {
   char Param[15];
   char Value[31];
-  char Prompt[63];
+  char Prompt[64];
   bool IsValid = FALSE;
 
   // Correct button number to site number 
@@ -15783,10 +15784,10 @@ void MonitorStop()
 
 void IPTSConfig(int NoButton)
 {
-  char RequestText[64];
-  char InitText[64];
+  char RequestText[128];
+  char InitText[128];
   bool IsValid = FALSE;
-  char KRCopy[63];
+  char KRCopy[64];
   char TSFile[255];
   char TSPath[255];
   char NewTSFile[255];
@@ -15904,8 +15905,8 @@ void Keyboard(char RequestText[64], char InitText[64], int MaxLength)
   int KeyboardShift = 1;
   int ShiftStatus = 0;
   char KeyPressed[2];
-  char PreCuttext[63];
-  char PostCuttext[63];
+  char PreCuttext[64];
+  char PostCuttext[64];
   bool refreshed;
   
   // Store away currentMenu
@@ -16330,17 +16331,17 @@ void ChangePresetFreq(int NoButton)
 
 void ChangeLMPresetFreq(int NoButton)
 {
-  char RequestText[63];
-  char InitText[63] = " ";
+  char RequestText[64];
+  char InitText[64] = " ";
   char PresetNo[3];
-  char Param[63];
+  char Param[64];
   div_t div_10;
   div_t div_100;
   div_t div_1000;
   int FreqIndex;
   int CheckValue = 0;
   int Offset_to_Apply = 0;
-  char FreqkHz[63];
+  char FreqkHz[64];
 
   // Convert button number to frequency array index
   if (CallingMenu == 8)  // Called from receive Menu
@@ -16421,7 +16422,7 @@ void ChangeLMPresetFreq(int NoButton)
   LMRXfreq[FreqIndex] = CheckValue;
 
   // Convert to string in kHz
-  snprintf(FreqkHz, 10, "%d", CheckValue);
+  snprintf(FreqkHz, 12, "%d", CheckValue);
 
   // Write to Presets File as in-use frequency
   if (strcmp(LMRXmode, "terr") == 0) // Terrestrial
@@ -16666,7 +16667,7 @@ void ManageContestCodes(int NoButton)
   int band;
   char Param[31];
   char Value[25];
-  char EntryText[127];
+  char EntryText[128];
   char RequestText[64];
   char InitText[64];
   bool IsValid = FALSE;
@@ -17302,10 +17303,10 @@ void ChangePlutoIPLangstone()  // For Langstone
 
 void ChangePlutoXO()
 {
-  char RequestText[63];
-  char InitText[63];
-  char cmdText[63];
-  char msgText[63];
+  char RequestText[64];
+  char InitText[64];
+  char cmdText[64];
+  char msgText[64];
   int Spaces = 1;
   int j;
   int newXO = 0;
@@ -17408,7 +17409,7 @@ void RebootPluto(int context)
   int test = 1;
   int count = 0;
   int touchcheckcount = 0;
-  char timetext[63];
+  char timetext[64];
   FinishedButton = 0;
 
   if (context == 0)  // Straight reboot
@@ -17538,8 +17539,8 @@ void RebootPluto(int context)
 void CheckPlutoFirmware()
 {
   FILE *fp;
-  char firmware_response_line[127]=" ";
-  char firmware_version[127];
+  char firmware_response_line[256]=" ";
+  char firmware_version[128];
 
   MsgBox4("Checking Pluto", "", "Please wait", "");
 
@@ -17827,7 +17828,7 @@ void SetLimeRFERXAtt()
 {
   char bandtext [15];
   char Param[31];
-  char Prompt[127];
+  char Prompt[128];
   char Value[31];
   int  RFEAtt;
    
@@ -17861,7 +17862,7 @@ void SetLimeRFERXAtt()
 void LimeRFEInit()
 {
   FILE *fp;
-  char response[127];
+  char response[128];
 
   if(rfe == NULL)             // don't do this if the port is already open
   {
@@ -17904,7 +17905,7 @@ void LimeRFEInit()
   int RFE_PORT_RX = 1;                    // RX port can only be 1 (TX/RX) or 3 (HF)
   int RFE_RX_ATT = 7;                     // RX attenuator setting.  0-7 representing 0-14dB
   float RealFreq = 146.5;
-  char Value[127] = "146.5";
+  char Value[128] = "146.5";
   unsigned char RFEInfo[7];
 
   // Look up the current transmit frequency and other parameters
@@ -18305,9 +18306,9 @@ void waituntil(int w,int h)
   int rawX, rawY, rawPressure, i;
   rawX = 0;
   rawY = 0;
-  char ValueToSave[63];
-  char device_name[63];
-  char linux_cmd[127];
+  char ValueToSave[64];
+  char device_name[64];
+  char linux_cmd[128];
 
   // Start the main loop for the Touchscreen
   for (;;)
@@ -22421,7 +22422,7 @@ void Start_Highlights_Menu1()
 
   // Presets Buttons 0 - 3
   
-  char Presettext[63];
+  char Presettext[64];
 
   strcpy(Presettext, "Preset 1^");
   strcat(Presettext, TabPresetLabel[0]);
@@ -22550,8 +22551,8 @@ void Start_Highlights_Menu1()
   // Frequency Button 10
 
   char Freqtext[255];
-  char streamname_[31];
-  char key_[15];
+  char streamname_[128];
+  char key_[16];
   float TvtrFreq;
   float RealFreq;
   float DLFreq;
@@ -22801,7 +22802,7 @@ void Start_Highlights_Menu1()
   // Video Source Button 19
 
   char Sourcetext[255];
-  char SourceFile[63];
+  char SourceFile[64];
   strcpy(Sourcetext, "Source^");
   if (strcmp(CurrentEncoding, "TS File") == 0)
   {
@@ -23308,7 +23309,7 @@ void Define_Menu6()
 void Start_Highlights_Menu6()
 {
   int index;
-  char RTLBtext[63];
+  char RTLBtext[64];
   int NoButton;
   int Match = 0;
 
@@ -24862,7 +24863,7 @@ void Define_Menu13()
 
 void Start_Highlights_Menu13()
 {
-  char buttontext[63];
+  char buttontext[64];
 
   if (AwaitingContestNumberEditSeln)
   {
@@ -26207,7 +26208,7 @@ void Define_Menu30()
 
 void Start_Highlights_Menu30()
 {
-  char current_display[63] = " ";
+  char current_display[64] = " ";
 
   printf("Entering Start Highlights Menu30\n");
 
@@ -26665,8 +26666,8 @@ void Start_Highlights_Menu35()
 {
   // Stream Display Menu
   int n;
-  char streamname[63];
-  char key[63];
+  char streamname[64];
+  char key[64];
 
   for(n = 8; n > 0; n = n - 1)  // Go backwards to highlight first identical button
   {
@@ -26815,7 +26816,7 @@ void Define_Menu37()
 
 void Start_Highlights_Menu37()  //  Lime Config Menu
 {
-  char caption[63];
+  char caption[64];
 
   // Buttons 1 & 2 LimeSDR V1 update
   if (CheckLimeMiniV2Connect() == 0)    // Grey out for a LimeSDR V2
@@ -27554,7 +27555,7 @@ void Define_Menu46()
 
 void Start_Highlights_Menu46()
 {
-  char LMBtext[63];
+  char LMBtext[64];
 
   if (strcmp(LMRXmode, "sat") == 0)
   {
@@ -27613,7 +27614,7 @@ void Start_Highlights_Menu46()
 void Define_Menu47()
 {
   int button;
-  char label[63];
+  char label[64];
 
   strcpy(MenuTitle[47], "Portsdown Test Card Selection (47)"); 
 
