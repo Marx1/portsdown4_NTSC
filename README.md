@@ -35,16 +35,7 @@ chmod +x install_portsdown.sh
 
 The initial build can take between 45 minutes and one hour, however it does not need any user input, so go and make a cup of coffee and keep an eye on the touchscreen.  When the build is finished the Pi will reboot and start-up with the touchscreen menu.
 
-- If your ISP is Virgin Media and you receive an error after entering the wget line: 'GnuTLS: A TLS fatal alert has been received.', it may be that your ISP is blocking access to GitHub.  If (only if) you get this error with Virgin Media, paste the following command in, and press return.
-```sh
-sudo sed -i 's/^#name_servers.*/name_servers=8.8.8.8/' /etc/resolvconf.conf
-```
-Then reboot, and try again.  The command asks your RPi to use Google's DNS, not your ISP's DNS.
-
-- If your ISP is BT, you will need to make sure that "BT Web Protect" is disabled so that you are able to download the software.
-
-- When it has finished, the installation will reboot and the touchscreen should be activated.  You will need to log in to the console to set up any other displays or advanced options.
-
+Once installed. Access the portsdown menu via /home/pi/rpidatv/scripts/menu.sh
 
 
 
