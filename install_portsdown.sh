@@ -16,10 +16,10 @@ GIT_SRC_FILE=".portsdown_gitsrc"
 
 #if [ "$1" == "-d" ]; then
 #  GIT_SRC="davecrump";
-#  echo
-#  echo "---------------------------------------------------------"
-#  echo "----- Installing NTSC version of Portsdown 4-----"
-#  echo "---------------------------------------------------------"
+  echo
+  echo "---------------------------------------------------------"
+  echo "----- Installing NTSC version of Portsdown 4-----"
+  echo "---------------------------------------------------------"
 #elif [ "$1" == "-u" -a ! -z "$2" ]; then
 #  GIT_SRC="$2"
   echo
@@ -32,7 +32,7 @@ GIT_SRC_FILE=".portsdown_gitsrc"
   
 # Download and install the VLC apt Preferences File 202212090
 cd /home/pi
-wget https://github.com/${GIT_SRC}/portsdown4/raw/master/scripts/configs/vlc
+wget https://github.com/${GIT_SRC}/portsdown4-NTSC/raw/master/scripts/configs/vlc
 sudo cp vlc /etc/apt/preferences.d/vlc
 
 # Update the package manager
@@ -75,7 +75,7 @@ sudo apt-get -y install fonts-dejavu-core                                 # Book
 sudo apt-get -y install fbi  imagemagick 
 #sudo apt-get -y install netcat omxplayer                                         #Legacy os 
 
-sudo apt-get -y netcat-traditional libiio-dev                                   #bookworm support
+sudo apt-get -y netcat-traditional                                    #bookworm support
 sudo apt-get -y install libpng-dev 
 sudo apt-get -y install libraspberrypi-dev
 sudo apt-get -y install libvdpau-dev libva-dev                           # For latest ffmpeg build
@@ -104,6 +104,14 @@ sudo apt-get -y install libssl-dev                                      # For we
 sudo apt-get -y install libzstd-dev                                     # For libiio 202309040
 sudo apt-get -y install arp-scan                                        # For List Network Devices
 
+
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
+  
 # Install WiringPi
 cd /home/pi
 git clone https://github.com/WiringPi/WiringPi.git
@@ -111,6 +119,12 @@ cd WiringPi
 rm ./debian-template/wiringpi*.deb   #clear any old junk out
 ./build debian
 
+
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
 
 # the below section doesn't work. So we're going to cheat and just install everyting from the debian-template directory,
 # Read latest WiringPi version number and install it
@@ -135,6 +149,14 @@ make all
 sudo make install
 cd /home/pi
 
+
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
+  
 # Install Websockets for Meteor Beacon RX server
 git clone https://github.com/warmcat/libwebsockets.git
 cd libwebsockets
@@ -144,7 +166,12 @@ sudo make install
 sudo ldconfig
 cd /home/pi
 
-
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
 # Enable USB Storage automount in Buster
 echo
 echo "----------------------------------"
@@ -157,6 +184,12 @@ fi
 
 cd /home/pi
 
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
 # Set auto login to command line.
 sudo raspi-config nonint do_boot_behaviour B2
 
@@ -191,15 +224,22 @@ echo
 echo "--------------------------------------------"
 echo "----- Downloading Portsdown 4 Software -----"
 echo "--------------------------------------------"
-wget https://github.com/${GIT_SRC}/portsdown4_ntsc/archive/master.zip
+# wget https://github.com/${GIT_SRC}/portsdown4_ntsc/archive/master.zip
+
+wget https://github.com/Marx1/portsdown4_NTSC/archive/refs/heads/Bookworm.zip -o master.zip
 
 # Unzip the rpidatv software and copy to the Pi
 unzip -o master.zip
-mv portsdown4_NTSC-master rpidatv
+mv portsdown4_NTSC-Bookwork rpidatv
+# mv portsdown4_NTSC-master rpidatv
 rm master.zip
 cd /home/pi
 
-
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
 # Install LimeSuite 22.09 as at 27 Feb 23
 # Commit 9c983d872e75214403b7778122e68d920d583add
 echo
@@ -231,6 +271,13 @@ sudo make install
 sudo ldconfig
 cd /home/pi
 
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
+  
 # Install udev rules for LimeSuite
 cd LimeSuite/udev-rules
 chmod +x install.sh
@@ -329,8 +376,11 @@ fi
 sudo apt-get -y install libvncserver-dev libavcodec-dev libavformat-dev libswscale-dev libavdevice-dev
 
 
-
-
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
 
 
 # Compile rpidatv gui
@@ -443,9 +493,17 @@ make dvb
 cp limesdr_dvb /home/pi/rpidatv/bin/
 cd /home/pi
 
+
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
+  
 # Install Muntjac
 
-#actually don't. It won't compile on 64bit and
+#actually don't. It won't compile on 64bit and there are major issues here.
 :'
 echo
 echo "------------------------------"
@@ -496,6 +554,13 @@ sudo cp minitiouner.rules /etc/udev/rules.d/
 
 cd /home/pi
 
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
+  
 # Download, compile and install the executable for hardware shutdown button
 echo
 echo "------------------------------------------------------------"
@@ -527,7 +592,13 @@ sudo chown root /etc/wpa_supplicant/wpa_supplicant.conf
 
 # Disable Wifi on Initial Start
 cp ~/rpidatv/scripts/configs/text.wifi_off ~/.wifi_off >/dev/null 2>/dev/null
-
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
+  
 # Compile the Signal Generator
 echo
 echo "------------------------------------------"
@@ -548,6 +619,13 @@ make
 cp adf4351 ../../bin/
 cd /home/pi
 
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
+  
 # Compile Band Viewer
 echo
 echo "---------------------------------"
@@ -571,6 +649,14 @@ make
 cp airspyview ../../bin/
 cd /home/pi
 
+
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
+  
 # Compile RTL-SDR Band Viewer
 echo
 echo "----------------------------------------"
@@ -581,6 +667,14 @@ make
 cp rtlsdrview ../../bin/
 cd /home/pi
 
+
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
+  
 # Compile Pluto Band Viewer
 echo
 echo "---------------------------------------"
@@ -619,7 +713,13 @@ cd /home/pi/rpidatv/src/power_meter
 make
 cp power_meter ../../bin/
 cd /home/pi
-
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
+  
 # Compile Lime NF Meter
 echo
 echo "---------------------------------------------"
@@ -659,7 +759,13 @@ cd /home/pi/rpidatv/src/dmm
 make
 cp dmm ../../bin/
 cd /home/pi
-
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
+  
+  
 # Compile LimeSDR Noise Meter
 echo
 echo "--------------------------------------"
@@ -694,7 +800,11 @@ cd /home/pi
 #echo "-----------------------------------------"
 #echo "----- Compiling Ancilliary programs -----"
 #echo "-----------------------------------------"
-
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
 
 # Compile and install the executable for GPIO-switched transmission (201710080)
 cd /home/pi/rpidatv/src/keyedtx
@@ -745,7 +855,11 @@ cd raspi2png
 make
 sudo make install
 cd /home/pi
-
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
 echo
 echo "--------------------------------------"
 echo "----- Configure the Menu Aliases -----"
@@ -782,7 +896,11 @@ fi
 # Configure the nginx web server
 cp -r /home/pi/rpidatv/scripts/configs/webroot /home/pi/webroot
 sudo cp /home/pi/rpidatv/scripts/configs/nginx.conf /etc/nginx/nginx.conf
-
+  read -n1 -r -s key;
+  if [[ $key == q ]]; then
+    exit 1;
+  fi
+  echo "ok!";
 # Create a directory for IQ files 202403250
 mkdir /home/pi/iqfiles
 
@@ -805,7 +923,7 @@ echo "----- Complete.  Rebooting -----"
 echo "--------------------------------"
 sleep 1
 
-sudo reboot now
+#sudo reboot now
 exit
 
 
