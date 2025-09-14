@@ -45,7 +45,7 @@ without them
 #include "font/font.h"
 #include "touch.h"
 #include "Graphics.h"
-#include "/home/pi/libiio/iio.h"  // for Pluto
+#include "iio.h"  // for Pluto
 #include "adf4153.h"
 
 #define KWHT  "\x1B[37m"

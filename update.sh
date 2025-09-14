@@ -184,7 +184,7 @@ DisplayUpdateMsg "Step 4 of 10\nUpdating Software Package List\n\nXXXX------"
 # Because installed version may not be the right one
 cd /home/pi
 if [ ! -f  /etc/apt/preferences.d/vlc ]; then
-  wget https://github.com/${GIT_SRC}/portsdown4/raw/master/scripts/configs/vlc
+  wget https://github.com/${GIT_SRC}/portsdown4_NTSC/raw/master/scripts/configs/vlc
   sudo cp vlc /etc/apt/preferences.d/vlc
 
   sudo apt -y remove vlc*

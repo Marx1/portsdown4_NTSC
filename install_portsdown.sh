@@ -73,10 +73,10 @@ sudo apt-get -y install bc usbmount libvncserver-dev
 sudo apt-get -y install ttf-dejavu-core                                  # being depracated?
 sudo apt-get -y install fonts-dejavu-core                                 # Bookworm support
 sudo apt-get -y install fbi  imagemagick 
-sudo apt-get -y install netcat omxplayer                                         #Legacy os 
+#sudo apt-get -y install netcat omxplayer                                         #Legacy os 
 
-sudo apt-get -y netcat-traditional                                      #bookworm support
-sudo apt-get -y install libpng-dev
+sudo apt-get -y netcat-traditional libiio-dev                                   #bookworm support
+sudo apt-get -y install libpng-dev 
 sudo apt-get -y install libraspberrypi-dev
 sudo apt-get -y install libvdpau-dev libva-dev                           # For latest ffmpeg build
 sudo apt-get -y install libsqlite3-dev libi2c-dev                        # 201811300 Lime
@@ -290,27 +290,27 @@ if [[ "$?" != "0" ]]; then
     /home/pi/.local/share/LimeSuite/images/23.11/LimeSDR-Mini_HW_2.0_r2.2.bit
 fi
 
-echo
-echo "--------------------------------------------------------------"
-echo "----- Downloading Portsdown 4 version of avc2ts Software -----"
-echo "--------------------------------------------------------------"
+#echo
+#echo "--------------------------------------------------------------"
+#echo "----- Downloading Portsdown 4 version of avc2ts Software -----"
+#echo "--------------------------------------------------------------"
 
 
 #This app is going to be depricated in the NTSC version of portsdown.
 
 # Download the previously selected version of avc2ts for Portsdown 4
-cd /home/pi	
+#cd /home/pi	
 
 #wget https://github.com/${GIT_SRC}/avc2ts/archive/refs/heads/portsdown4.zip
 
 #Pull the code directly form BATC 
-wget https://github.com/BritishAmateurTelevisionClub/avc2ts/archive/refs/heads/portsdown4.zip
+#wget https://github.com/BritishAmateurTelevisionClub/avc2ts/archive/refs/heads/portsdown4.zip
 
 #Legacy code
 # Unzip the avc2ts software and copy to the Pi  
-unzip -o portsdown4.zip
-mv avc2ts-portsdown4 avc2ts
-rm portsdown4.zip
+#unzip -o portsdown4.zip
+#mv avc2ts-portsdown4 avc2ts
+#rm portsdown4.zip
 
 
 
@@ -343,33 +343,33 @@ make
 sudo make install
 
 # Build avc2ts and dependencies
-echo
-echo "--------------------------------------------"
-echo "----- Building avc2ts and dependencies -----"
-echo "--------------------------------------------"
+#echo
+#echo "--------------------------------------------"
+#echo "----- Building avc2ts and dependencies -----"
+#echo "--------------------------------------------"
 
 # For libmpegts
-cd /home/pi/avc2ts
-git clone https://github.com/F5OEO/libmpegts.git
-cd libmpegts
+#cd /home/pi/avc2ts
+#git clone https://github.com/F5OEO/libmpegts.git
+#cd libmpegts
 # Overwrite updated config version files 202307170
-cp /home/pi/rpidatv/scripts/configs/config.guess config.guess
-cp /home/pi/rpidatv/scripts/configs/config.sub config.sub
-./configure
-make
-cd ../
+#cp /home/pi/rpidatv/scripts/configs/config.guess config.guess
+#cp /home/pi/rpidatv/scripts/configs/config.sub config.sub
+#./configure
+#make
+#cd ../
 
 # For libfdkaac
-git clone https://github.com/mstorsjo/fdk-aac.git
-cd fdk-aac
+#git clone https://github.com/mstorsjo/fdk-aac.git
+#cd fdk-aac
 # Overwrite updated config version files 202307170
-cp /home/pi/rpidatv/scripts/configs/config.guess config.guess
-cp /home/pi/rpidatv/scripts/configs/config.sub config.sub
-./autogen.sh
-./configure
-make && sudo make install
-sudo ldconfig
-cd ../
+#cp /home/pi/rpidatv/scripts/configs/config.guess config.guess
+#cp /home/pi/rpidatv/scripts/configs/config.sub config.sub
+#./autogen.sh
+#./configure
+#make && sudo make install
+#sudo ldconfig
+#cd ../
 
 #libyuv should be used for fast picture transformation : not yet implemented
 #git clone https://chromium.googlesource.com/libyuv/libyuv
@@ -380,10 +380,10 @@ cd ../
 #cd ../
 
 # Make avc2ts
-cd /home/pi/avc2ts
-make
-cp avc2ts ../rpidatv/bin/
-cd /home/pi
+#cd /home/pi/avc2ts
+#make
+#cp avc2ts ../rpidatv/bin/
+#cd /home/pi
 
 echo
 echo "-----------------------------------------------"
@@ -444,6 +444,9 @@ cp limesdr_dvb /home/pi/rpidatv/bin/
 cd /home/pi
 
 # Install Muntjac
+
+#actually don't. It won't compile on 64bit and
+:'
 echo
 echo "------------------------------"
 echo "----- Installing Muntjac -----"
@@ -451,13 +454,15 @@ echo "------------------------------"
 
 cd /home/pi/rpidatv/src/muntjac
 
-gcc  muntjacsdr_dvb.c  dvbs2neon.S  -mfpu=neon  -lpthread  -o  muntjacsdr_dvb
-gcc  mjcalib-0v1a.c  dvbs2neon.S  -mfpu=neon  -lpthread  -o mjcalib  # only used for manual calibration
+gcc  muntjacsdr_dvb.c  dvbs2neon.S   -lpthread  -o  muntjacsdr_dvb
+gcc  mjcalib-0v1a.c  dvbs2neon.S   -lpthread  -o mjcalib  # only used for manual calibration
 
 cp muntjacsdr_dvb /home/pi/rpidatv/bin/             # Executable
 cp E46214B063533828.mjo /home/pi/rpidatv/bin/       # LO Suppression file
 
 cd /home/pi
+
+'
 
 echo
 echo "----------------------------------"
@@ -480,7 +485,9 @@ echo "--------------------------------------------"
 echo "----- Installing the LongMynd Receiver -----"
 echo "--------------------------------------------"
 cd /home/pi
-cp -r /home/pi/rpidatv/src/longmynd/ /home/pi/
+git clone https://github.com/myorangedragon/longmynd
+
+#cp -r /home/pi/rpidatv/src/longmynd/ /home/pi/
 cd longmynd
 make
 
@@ -593,8 +600,11 @@ echo "---------------------------------------"
 cd /home/pi/rpidatv/src/meteorview
 
 # Download api
-wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
-chmod +x SDRplay_RSP_API-ARM-3.09.1.run
+#wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
+wget https://www.sdrplay.com/software/SDRplay_RSP_API-Linux-3.12.1.run
+
+#chmod +x SDRplay_RSP_API-ARM-3.09.1.run
+chmod +x SDRplay_RSP_API-Linux-3.12.1.run
 
 # Create file to trigger install on next reboot
 touch /home/pi/rpidatv/.post-install_actions

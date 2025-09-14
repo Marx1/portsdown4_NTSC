@@ -22,7 +22,7 @@
 #include "font/font.h"
 #include "touch.h"
 #include "graphics.h"
-#include "/home/pi/libiio/iio.h"  // for Pluto
+#include "iio.h"  // for Pluto
 #include "timing.h"
 #include "pluto.h"
 #include "fft.h"
