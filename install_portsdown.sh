@@ -141,8 +141,8 @@ cd /home/pi
 git clone https://github.com/analogdevicesinc/libiio.git
 cd libiio
 
-# we're not doing old versions because we have bookworm
-# git reset --hard b6028fdeef888ab45f7c1dd6e4ed9480ae4b55e3  # Back to Version 0.25
+
+git reset --hard b6028fdeef888ab45f7c1dd6e4ed9480ae4b55e3  # Back to Version 0.25
 
 cmake ./
 make all
@@ -226,11 +226,11 @@ echo "----- Downloading Portsdown 4 Software -----"
 echo "--------------------------------------------"
 # wget https://github.com/${GIT_SRC}/portsdown4_ntsc/archive/master.zip
 
-wget https://github.com/Marx1/portsdown4_NTSC/archive/refs/heads/Bookworm.zip -o master.zip
+wget https://github.com/Marx1/portsdown4_NTSC/archive/refs/heads/Bookworm.zip -O master.zip
 
 # Unzip the rpidatv software and copy to the Pi
 unzip -o master.zip
-mv portsdown4_NTSC-Bookwork rpidatv
+mv portsdown4_NTSC-Bookworm rpidatv
 # mv portsdown4_NTSC-master rpidatv
 rm master.zip
 cd /home/pi
@@ -249,7 +249,7 @@ echo "--------------------------------------"
 #legacy version/code
 # wget https://github.com/myriadrf/LimeSuite/archive/9c983d872e75214403b7778122e68d920d583add.zip -O master.zip
 
-wget https://github.com/myriadrf/LimeSuite/archive/refs/tags/v23.11.0.zip -o master.zip
+wget https://github.com/myriadrf/LimeSuite/archive/refs/tags/v23.11.0.zip -O master.zip
 
 unzip -o master.zip
 
@@ -390,7 +390,7 @@ echo "----- Compiling rpidatvtouch -----"
 echo "----------------------------------"
 cd /home/pi/rpidatv/src/gui
 make
-sudo make install
+make install
 
 # Build avc2ts and dependencies
 #echo
@@ -606,7 +606,7 @@ echo "----- Compiling the Signal Generator -----"
 echo "------------------------------------------"
 cd /home/pi/rpidatv/src/siggen
 make
-sudo make install
+make install
 cd /home/pi
 
 # Compile adf4351
@@ -896,6 +896,19 @@ fi
 # Configure the nginx web server
 cp -r /home/pi/rpidatv/scripts/configs/webroot /home/pi/webroot
 sudo cp /home/pi/rpidatv/scripts/configs/nginx.conf /etc/nginx/nginx.conf
+sudo chmod o+rx /home/pi
+
+chgrp www-data /home/pi/webroot -R
+sudo chmod o+rx /home/pi/webroot -R
+sudo chmod o+rx /home/pi/snaps -R
+sudo chmod o+rx /home/pi/tmp -R
+
+sudo chmod g+rx /home/pi/webroot -R
+sudo chmod g+rx /home/pi/snaps -R
+sudo chmod g+rx /home/pi/tmp -R
+
+
+
   read -n1 -r -s key;
   if [[ $key == q ]]; then
     exit 1;

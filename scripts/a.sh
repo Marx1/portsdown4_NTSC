@@ -2003,7 +2003,7 @@ exit
 
         # ******************************* MPEG-2 ANALOG VIDEO WITH BEEP ************************************
 
-        sudo nice -n -30 $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET"\
+        sudo nice -n -30 ffmpeg -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET"\
           -analyzeduration 0 -probesize 2048  -fpsprobesize 0 -thread_queue_size 512\
           -f v4l2 -framerate $VIDEO_FPS -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT"\
           -i $VID_USB -fflags nobuffer \
@@ -2027,7 +2027,7 @@ exit
         # PCR PID ($PIDSTART) seems to be fixed as the same as the video PID.  
         # PMT, Vid and Audio PIDs can all be set.
 
-        $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET"\
+        ffmpeg -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET"\
           -analyzeduration 0 -probesize 2048  -fpsprobesize 0 -thread_queue_size 512\
           -f v4l2 -framerate $VIDEO_FPS -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT"\
           -i $VID_USB -fflags nobuffer \
@@ -2177,7 +2177,7 @@ exit
 
         # No code for beeps here
         if [ "$AUDIO_CARD" == 0 ]; then
-          $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
+          ffmpeg -loglevel $MODE_DEBUG -thread_queue_size 2048 \
             -f image2 -loop 1 \
             -i $IMAGEFILE \
             -framerate 29.97 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" -c:v h264_omx -b:v 576k \
@@ -2185,7 +2185,7 @@ exit
             \
             -f flv $STREAM_URL/$STREAM_KEY &
         else
-          $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET" \
+          ffmpeg -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET" \
             -f image2 -loop 1 \
             -i $IMAGEFILE \
             \
@@ -2202,7 +2202,7 @@ exit
 
           # ******************************* MPEG-2 CARD WITH NO AUDIO ************************************
 
-          sudo nice -n -30 $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG \
+          sudo nice -n -30 ffmpeg -loglevel $MODE_DEBUG \
             -re -loop 1 \
             -framerate 5 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" \
             -i $IMAGEFILE \
@@ -2219,7 +2219,7 @@ exit
 
           # ******************************* MPEG-2 CARD WITH BEEP ************************************
 
-          sudo nice -n -30 $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG \
+          sudo nice -n -30 ffmpeg -loglevel $MODE_DEBUG \
             -re -loop 1 \
             -framerate 5 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" \
             -i $IMAGEFILE \
@@ -2242,7 +2242,7 @@ exit
           # PCR PID ($PIDSTART) seems to be fixed as the same as the video PID.  
           # PMT, Vid and Audio PIDs can all be set. nice -n -30 
 
-          sudo $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET" \
+          sudo ffmpeg -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET" \
             -thread_queue_size 512 \
             -re -loop 1 \
             -framerate 5 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" \
@@ -2343,7 +2343,7 @@ exit
           boxborderw=5: x=w/20: y=(h/8-text_h)/2,"
 
         # Audio does not yet work
-        $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
+        ffmpeg -loglevel $MODE_DEBUG -thread_queue_size 2048 \
           -f v4l2 \
           -i $VID_WEBCAM \
           -c:v h264_omx -b:v 1024k \
