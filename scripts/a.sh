@@ -418,7 +418,7 @@ if [ "$MODE_INPUT" == "CAMMPEG-2" ] || [ "$MODE_INPUT" == "ANALOGMPEG-2" ] \
         VIDEO_WIDTH=352
         VIDEO_HEIGHT=288
       else
-        VIDEO_WIDTH=704
+        VIDEO_WIDTH=720
         VIDEO_HEIGHT=$IMAGE_HEIGHT
         VIDEO_FPS=30
       fi
@@ -622,7 +622,7 @@ case "$MODE_INPUT" in
         VIDEO_WIDTH=1920
         VIDEO_HEIGHT=1080
       else
-        VIDEO_WIDTH=704
+        VIDEO_WIDTH=720
         VIDEO_HEIGHT=480
       fi
 
@@ -1352,7 +1352,7 @@ fi
           sudo fbi -T 1 -noverbose -a /home/pi/rpidatv/scripts/images/tcfw16.jpg >/dev/null 2>/dev/null
         fi
       else
-        VIDEO_WIDTH=704
+        VIDEO_WIDTH=720
         VIDEO_HEIGHT=480
         if [ "$CAPTIONON" == "on" ]; then
           rm /home/pi/tmp/caption.png >/dev/null 2>/dev/null
@@ -1391,7 +1391,7 @@ fi
       rm /home/pi/tmp/contest.jpg >/dev/null 2>/dev/null
 
       # Set size of contest numbers image up front to save resizing afterwards
-      CNGEOMETRY="704x480"
+      CNGEOMETRY="720x480"
 
       # Create the numbers image in the tempfs folder
       convert -font "FreeSans" -size "${CNGEOMETRY}" xc:white \
@@ -1452,7 +1452,7 @@ fi
 
     # Set the image size depending on bitrate (except for widescreen)
     if [ "$BITRATE_VIDEO" -gt 190000 ]; then  # 333KS FEC 1/2 or better
-      VIDEO_WIDTH=704
+      VIDEO_WIDTH=720
       VIDEO_HEIGHT=480
     else
       VIDEO_WIDTH=384
@@ -1891,7 +1891,7 @@ fi
     case "$MODE_OUTPUT" in
       "STREAMER")
         if [ "$VIDEO_WIDTH" -lt 640 ]; then
-          VIDEO_WIDTH=704
+          VIDEO_WIDTH=720
           VIDEO_HEIGHT=480
         fi
           SCALE=""
@@ -2014,7 +2014,7 @@ exit
       rm /home/pi/tmp/contest.jpg >/dev/null 2>/dev/null
 
       # Set size of contest numbers image up front to save resizing afterwards
-      CNGEOMETRY="704x480"
+      CNGEOMETRY="720x480"
       if [ "$DISPLAY" == "Element14_7" ]; then
         CNGEOMETRY="800x480"
       fi
@@ -2103,7 +2103,7 @@ exit
     # Now generate the stream
     case "$MODE_OUTPUT" in
       "STREAMER")
-          VIDEO_WIDTH=704
+          VIDEO_WIDTH=720
           VIDEO_HEIGHT=480
 
 
@@ -2258,8 +2258,8 @@ exit
           VIDEO_HEIGHT=720
           VIDEO_FPS=30
         else
-          v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=704,height=480,pixelformat=0,field=30
-          VIDEO_WIDTH=704
+          v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=720,height=480,pixelformat=0,field=30
+          VIDEO_WIDTH=720
           VIDEO_HEIGHT=480
           VIDEO_FPS=30
         fi
