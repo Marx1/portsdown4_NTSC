@@ -445,11 +445,7 @@ else # h264
 
   # Set the H264 image size based on what the format is. Don't worry about bitrates.
 
-    if [ "$FORMAT" == "16:9" ]; then
-      VIDEO_WIDTH=1024
-      VIDEO_HEIGHT=576
-      VIDEO_FPS=30
-    elif [ "$FORMAT" == "720p" ] ; then
+    if [ "$FORMAT" == "720p" ] ; then
       VIDEO_WIDTH=1280
       VIDEO_HEIGHT=720
       VIDEO_FPS=30
@@ -619,10 +615,7 @@ case "$MODE_INPUT" in
       sudo modprobe bcm2835_v4l2
 
       # Size image as required
-      if [ "$FORMAT" == "16:9" ]; then
-        VIDEO_WIDTH=1024
-        VIDEO_HEIGHT=576
-      elif [ "$FORMAT" == "720p" ] ; then
+      if [ "$FORMAT" == "720p" ] ; then
         VIDEO_WIDTH=1280
         VIDEO_HEIGHT=720
       elif [ "$FORMAT" == "1080p" ] ; then
@@ -651,7 +644,7 @@ case "$MODE_INPUT" in
         rpidatv/bin/ffmpeg -thread_queue_size 2048 \
           -f v4l2 -input_format h264 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" \
           -i $VID_PICAM \
-          -c:v h264_omx -b:v $BITRATE_VIDEO -g 25 \
+          -c:v h264_omx -b:v $BITRATE_VIDEO -g 30 \
           -f flv \
           rtmp://$PLUTOIP:7272/,$FREQ_OUTPUT,$MODTYPE,$CONSTLN,$SYMBOLRATE_K,$PFEC,-$PLUTOPWR,nocalib,800,32,/$PLUTOCALL, &
 
@@ -662,9 +655,12 @@ case "$MODE_INPUT" in
         rpidatv/bin/ffmpeg -thread_queue_size 2048 \
           -f v4l2 -input_format h264 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" \
           -i $VID_PICAM \
+          \
           -f alsa -thread_queue_size 2048 -ac $AUDIO_CHANNELS -ar $AUDIO_SAMPLE \
           -i hw:$AUDIO_CARD_NUMBER,0 \
-          -c:v h264_omx -b:v $BITRATE_VIDEO -g 25 \
+          -filter:a "compand=attacks=0:points=-80/-900|-45/-15|-27/-9|0/-7|20/-7:gain=5" \
+          \
+          -c:v h264_omx -b:v $BITRATE_VIDEO -g 30 \
           -ar 22050 -ac $AUDIO_CHANNELS -ab 64k \
           -f flv \
           rtmp://$PLUTOIP:7272/,$FREQ_OUTPUT,$MODTYPE,$CONSTLN,$SYMBOLRATE_K,$PFEC,-$PLUTOPWR,nocalib,800,32,/$PLUTOCALL, &
@@ -674,10 +670,7 @@ case "$MODE_INPUT" in
 
     ################# Lime, DATV Express and DVB-T Code #################################
 
-      if [ "$FORMAT" == "16:9" ]; then
-        VIDEO_WIDTH=1024
-        VIDEO_HEIGHT=480
-      elif [ "$FORMAT" == "720p" ] ; then
+      if [ "$FORMAT" == "720p" ] ; then
         VIDEO_WIDTH=1280
         VIDEO_HEIGHT=720
       elif [ "$FORMAT" == "1080p" ] ; then
@@ -845,10 +838,7 @@ fi
           VIDEO_WIDTH=720
           VIDEO_HEIGHT=480
         fi
-        if [ "$FORMAT" == "16:9" ]; then
-          VIDEO_WIDTH=1024
-          VIDEO_HEIGHT=576
-        fi
+
 
         # No code for beeps here
         sudo modprobe bcm2835_v4l2
@@ -856,9 +846,9 @@ fi
           $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
             -f v4l2 -input_format h264 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" \
             -i $VID_PICAM \
-            $VF $CAPTION -framerate 25 \
+            $VF $CAPTION -framerate 30 \
             -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" -c:v h264_omx -b:v 576k \
-            -g 29.97 \
+            -g 30 \
             -f flv $STREAM_URL/$STREAM_KEY &
         else
           $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -itsoffset "$ITS_OFFSET" \
@@ -866,10 +856,11 @@ fi
             -i $VID_PICAM -thread_queue_size 2048 \
             -f alsa -ac $AUDIO_CHANNELS -ar $AUDIO_SAMPLE \
             -i hw:$AUDIO_CARD_NUMBER,0 \
-            $VF $CAPTION -framerate 25 \
+	    -filter:a "compand=attacks=0:points=-80/-900|-45/-15|-27/-9|0/-7|20/-7:gain=5" \
+            $VF $CAPTION -framerate 30 \
             -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" -c:v h264_omx -b:v 512k \
             -ar 22050 -ac $AUDIO_CHANNELS -ab 64k \
-            -g 29.97 \
+            -g 30 \
             -f flv $STREAM_URL/$STREAM_KEY &
         fi
       ;;
@@ -925,7 +916,8 @@ fi
             \
             -f alsa -thread_queue_size 2048 -ac $AUDIO_CHANNELS -ar $AUDIO_SAMPLE \
             -i hw:$AUDIO_CARD_NUMBER,0 \
-            \
+            -filter:a "compand=attacks=0:points=-80/-900|-45/-15|-27/-9|0/-7|20/-7:gain=5" \
+            
             $VF $CAPTION -b:v $BITRATE_VIDEO -minrate:v $BITRATE_VIDEO -maxrate:v  $BITRATE_VIDEO \
             -acodec mp2 -b:a 64K -ar 44100 -ac $AUDIO_CHANNELS \
             -f mpegts  -blocksize 1880 \
@@ -960,10 +952,7 @@ fi
         INPUT_FORMAT="h264"
         AUDIO_SAMPLE=32000
         AUDIO_CHANNELS=2
-        if [ "$FORMAT" == "16:9" ]; then
-          VIDEO_WIDTH=800
-          VIDEO_HEIGHT=448
-        elif [ "$FORMAT" == "720p" ] || [ "$FORMAT" == "1080p" ]; then
+        if [ "$FORMAT" == "720p" ] || [ "$FORMAT" == "1080p" ]; then
           VIDEO_WIDTH=1280
           VIDEO_HEIGHT=720
         else
@@ -978,13 +967,9 @@ fi
         INPUT_FORMAT="yuyv422"
         AUDIO_SAMPLE=32000
         AUDIO_CHANNELS=2
-        if [ "$FORMAT" == "16:9" ]; then
-          VIDEO_WIDTH=800
-          VIDEO_HEIGHT=448
-        else
-          VIDEO_WIDTH=800
-          VIDEO_HEIGHT=600
-        fi
+        VIDEO_WIDTH=800
+        VIDEO_HEIGHT=600
+        
       fi
 
       # Logitech Brio 4K
@@ -992,13 +977,9 @@ fi
         INPUT_FORMAT="yuyv422"
         AUDIO_SAMPLE=24000
         AUDIO_CHANNELS=2
-        if [ "$FORMAT" == "16:9" ]; then
-          VIDEO_WIDTH=800
-          VIDEO_HEIGHT=448
-        else
-          VIDEO_WIDTH=800
-          VIDEO_HEIGHT=600
-        fi
+        VIDEO_WIDTH=800
+        VIDEO_HEIGHT=600
+        
       fi
 
       if [ "$WEBCAM_TYPE" == "C930e" ]; then  # C930e (G4KLB)
@@ -1008,9 +989,6 @@ fi
         if [ "$FORMAT" == "720p" ]; then
           VIDEO_WIDTH=1280
           VIDEO_HEIGHT=720
-        elif [ "$FORMAT" == "16:9" ]; then
-          VIDEO_WIDTH=800
-          VIDEO_HEIGHT=448
         else
           VIDEO_WIDTH=800
           VIDEO_HEIGHT=600
@@ -1024,9 +1002,6 @@ fi
         if [ "$FORMAT" == "720p" ]; then
           VIDEO_WIDTH=1280
           VIDEO_HEIGHT=720
-        elif [ "$FORMAT" == "16:9" ]; then
-          VIDEO_WIDTH=800
-          VIDEO_HEIGHT=480
         else
           VIDEO_WIDTH=800
           VIDEO_HEIGHT=600
@@ -1036,21 +1011,14 @@ fi
       if [ "$WEBCAM_TYPE" == "C170" ] || [ "$WEBCAM_TYPE" == "C525" ]; then
         INPUT_FORMAT="yuyv422"
         AUDIO_CHANNELS=1
-        if [ "$FORMAT" == "16:9" ]; then
-          VIDEO_WIDTH=640
-          VIDEO_HEIGHT=360
-        else
-          VIDEO_WIDTH=640
-          VIDEO_HEIGHT=480
-        fi
+        VIDEO_WIDTH=640
+        VIDEO_HEIGHT=480
+        
       fi
 
       if [ "$WEBCAM_TYPE" == "EagleEye" ]; then
         INPUT_FORMAT="yuyv422"
-        if [ "$FORMAT" == "16:9" ]; then
-          VIDEO_WIDTH=640
-          VIDEO_HEIGHT=360
-        elif [ "$FORMAT" == "720p" ]; then
+       if [ "$FORMAT" == "720p" ]; then
           VIDEO_WIDTH=1280
           VIDEO_HEIGHT=720
         elif [ "$FORMAT" == "1080p" ]; then
@@ -1081,7 +1049,8 @@ fi
         -i $VID_WEBCAM \
         -f alsa -thread_queue_size 2048 -ac $AUDIO_CHANNELS -ar $AUDIO_SAMPLE \
         -i hw:$AUDIO_CARD_NUMBER,0 \
-        -c:v h264_omx -b:v $BITRATE_VIDEO -g 25 \
+		    -filter:a "compand=attacks=0:points=-80/-900|-45/-15|-27/-9|0/-7|20/-7:gain=5" \		
+        -c:v h264_omx -b:v $BITRATE_VIDEO -g 30 \
         -ar 22050 -ac $AUDIO_CHANNELS -ab 64k \
         -f flv \
         rtmp://$PLUTOIP:7272/,$FREQ_OUTPUT,$MODTYPE,$CONSTLN,$SYMBOLRATE_K,$PFEC,-$PLUTOPWR,nocalib,800,32,/$PLUTOCALL, &
@@ -1091,12 +1060,8 @@ fi
     ##################### Pluto DVB-S/S2 H264 EasyCap Code ##############################
 
     # Widescreen switching
-    if [ "$FORMAT" == "16:9" ]; then
-      SCALE="-vf scale=1024:576"
-      # SCALE="-vf scale=720:400"  Slightly better for fast moving images
-    else
       SCALE=""
-    fi
+
 
     if [ "$MODE_INPUT" == "ANALOGCAM" ] && [ "$MODULATION" != "DVB-T" ]; then
       # Set the EasyCap input and video standard
@@ -1115,7 +1080,8 @@ fi
           -i $ANALOGCAMNAME \
           -f alsa -thread_queue_size 2048 -ac $AUDIO_CHANNELS  \
           -i hw:$AUDIO_CARD_NUMBER,0 \
-          -c:v h264_omx -b:v $BITRATE_VIDEO $SCALE -g 25 \
+		  -filter:a "compand=attacks=0:points=-80/-900|-45/-15|-27/-9|0/-7|20/-7:gain=5" \
+          -c:v h264_omx -b:v $BITRATE_VIDEO $SCALE -g 30 \
           -ar 22050 -ac $AUDIO_CHANNELS -ab 64k \
           -f flv \
           rtmp://$PLUTOIP:7272/,$FREQ_OUTPUT,$MODTYPE,$CONSTLN,$SYMBOLRATE_K,$PFEC,-$PLUTOPWR,nocalib,800,32,/$PLUTOCALL, &
@@ -1237,17 +1203,10 @@ fi
         AUDIO_SAMPLE=48000
         AUDIO_CHANNELS=1
         if [ "$BITRATE_VIDEO" -gt 190000 ]; then  # 333KS FEC 1/2 or better
-          if [ "$FORMAT" == "16:9" ]; then
-            v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=640,height=360,pixelformat=0 --set-parm=25
-            VIDEO_WIDTH=640
-            VIDEO_HEIGHT=360
-            VIDEO_FPS=30
-          else
             v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=640,height=480,pixelformat=0 --set-parm=25
             VIDEO_WIDTH=640
             VIDEO_HEIGHT=480
             VIDEO_FPS=30
-          fi
         else
           v4l2-ctl --device="$VID_WEBCAM" --set-fmt-video=width=352,height=288,pixelformat=0 --set-parm=15
           VIDEO_WIDTH=352
@@ -1326,12 +1285,6 @@ fi
 
       if [ "$MODE_INPUT" == "ANALOGCAM" ]; then              # EasyCap.  No audio resampling required
 
-        if [ "$FORMAT" == "16:9" ]; then
-          VIDEO_WIDTH=768
-          VIDEO_HEIGHT=400
-          #VIDEO_WIDTH=1024
-          #VIDEO_HEIGHT=576
-        fi
 
         # Select correct audio capture
         lsusb | grep -q "1b71:3002"
@@ -1384,9 +1337,9 @@ fi
 
     if [ "$MODE_OUTPUT" == "PLUTO" ] && [ "$MODE_INPUT" == "CARDH264" ] && [ "$MODULATION" != "DVB-T" ]; then
 
-      if [ "$FORMAT" == "16:9" ] || [ "$FORMAT" == "720p" ] || [ "$FORMAT" == "1080p" ]; then
-        VIDEO_WIDTH=1024
-        VIDEO_HEIGHT=576
+      if  [ "$FORMAT" == "720p" ] || [ "$FORMAT" == "1080p" ]; then
+        VIDEO_WIDTH=1280
+        VIDEO_HEIGHT=720
         if [ "$CAPTIONON" == "on" ]; then
           rm /home/pi/tmp/caption.png >/dev/null 2>/dev/null
           rm /home/pi/tmp/tcfw162.jpg >/dev/null 2>/dev/null
@@ -1462,7 +1415,7 @@ fi
          $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
           -re -loop 1 \
           -i $IMAGEFILE \
-          -framerate 25 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" \
+          -framerate 30 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" \
           -c:v h264_omx -b:v $BITRATE_VIDEO \
           -f flv \
           rtmp://$PLUTOIP:7272/,$FREQ_OUTPUT,$MODTYPE,$CONSTLN,$SYMBOLRATE_K,$PFEC,-$PLUTOPWR,nocalib,800,32,/$PLUTOCALL, &
@@ -1488,7 +1441,7 @@ fi
          $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048 \
             -re -loop 1 \
             -i $IMAGEFILE \
-            -framerate 25 -video_size 800x480 -c:v h264_omx -b:v $BITRATE_VIDEO \
+            -framerate 30 -video_size 800x480 -c:v h264_omx -b:v $BITRATE_VIDEO \
         -f flv \
         rtmp://$PLUTOIP:7272/,$FREQ_OUTPUT,$MODTYPE,$CONSTLN,$SYMBOLRATE_K,$PFEC,-$PLUTOPWR,nocalib,800,32,/$PLUTOCALL, &
       exit
@@ -1530,9 +1483,9 @@ fi
       (sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &  ## kill fbi once it has done its work
 
     elif [ "$MODE_INPUT" == "CARDH264" ]; then
-      if [ "$FORMAT" == "16:9" ] || [ "$FORMAT" == "720p" ] || [ "$FORMAT" == "1080p" ]; then
-        VIDEO_WIDTH=800
-        VIDEO_HEIGHT=448
+      if [ "$FORMAT" == "720p" ] || [ "$FORMAT" == "1080p" ]; then
+        VIDEO_WIDTH=1280
+        VIDEO_HEIGHT=720
         rm /home/pi/tmp/tcfw162.jpg >/dev/null 2>/dev/null
         if [ "$CAPTIONON" == "on" ]; then
           rm /home/pi/tmp/caption.png >/dev/null 2>/dev/null
@@ -1777,9 +1730,6 @@ fi
     # "-00:00:0.2" works well at SR2000 on IQ mode
     ITS_OFFSET="-00:00:0.2"
 
-    if [ "$MODE_INPUT" == "WEBCAMMPEG-2" ] && [ "$FORMAT" == "16:9" ]; then
-      MODE_INPUT="WEBCAM16MPEG-2"
-    fi
 
     # Sort out image size, video delay and scaling
     SCALE=""
@@ -1944,19 +1894,16 @@ fi
           VIDEO_WIDTH=704
           VIDEO_HEIGHT=480
         fi
-        if [ "$FORMAT" == "16:9" ]; then
-          SCALE="scale=853:480,"
-        else
           SCALE=""
-        fi
+
 
         if [ "$AUDIO_CARD" == "0" ]; then
           # No audio
           $PATHRPI"/ffmpeg" -loglevel $MODE_DEBUG -thread_queue_size 2048\
             -f v4l2 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" \
             -i $VID_USB \
-            -framerate 25 -c:v h264_omx -b:v 576k \
-            -vf "$CAPTION""$SCALE"yadif=0:1:0 -g 25 \
+            -framerate 30 -c:v h264_omx -b:v 576k \
+            -vf "$CAPTION""$SCALE"yadif=0:1:0 -g 30 \
             -f flv $STREAM_URL/$STREAM_KEY &
         else
           # With audio
@@ -1965,9 +1912,10 @@ fi
             -i $VID_USB \
             -f alsa -thread_queue_size 2048 -ac $AUDIO_CHANNELS -ar $AUDIO_SAMPLE \
             -i hw:$AUDIO_CARD_NUMBER,0 \
-            -framerate 25 -c:v h264_omx -b:v 512k \
+
+            -framerate 30 -c:v h264_omx -b:v 512k \
             -ar 22050 -ac $AUDIO_CHANNELS -ab 64k \
-            -vf "$CAPTION""$SCALE"yadif=0:1:0 -g 25 \
+            -vf "$CAPTION""$SCALE"yadif=0:1:0 -g 30 \
             -f flv $STREAM_URL/$STREAM_KEY &
         fi
 
@@ -2035,6 +1983,7 @@ exit
           -thread_queue_size 512 \
           -f alsa -ac $AUDIO_CHANNELS -ar $AUDIO_SAMPLE \
           -i hw:$AUDIO_CARD_NUMBER,0 \
+          -filter:a "compand=attacks=0:points=-80/-900|-45/-15|-27/-9|0/-7|20/-7:gain=5" \
           \
           -c:v mpeg2video -vf "$CAPTION""$SCALE""format=yuva420p,hqdn3d=15" \
           -b:v $BITRATE_VIDEO -minrate:v $BITRATE_VIDEO -maxrate:v  $BITRATE_VIDEO\
@@ -2088,25 +2037,12 @@ exit
         rm /home/pi/tmp/caption.png >/dev/null 2>/dev/null
         rm /home/pi/tmp/tcf2.jpg >/dev/null 2>/dev/null
         convert -font "FreeSans" -size 720x80 xc:transparent -fill white -gravity Center -pointsize 40 -annotate 0 $CALL /home/pi/tmp/caption.png
-        convert /home/pi/rpidatv/scripts/images/tcf.jpg /home/pi/tmp/caption.png -geometry +0+475 -composite /home/pi/tmp/tcf2.jpg
-        IMAGEFILE="/home/pi/tmp/tcf2.jpg"
-        sudo fbi -T 1 -noverbose -a /home/pi/tmp/tcf2.jpg >/dev/null 2>/dev/null
+        convert /home/pi/rpidatv/scripts/images/smpte.jpg /home/pi/tmp/caption.png -geometry +0+375 -composite /home/pi/tmp/smpte.jpg
+        IMAGEFILE="/home/pi/tmp/smpte.jpg"
+        sudo fbi -T 1 -noverbose -a /home/pi/tmp/smpte.jpg >/dev/null 2>/dev/null
       else
-        IMAGEFILE="/home/pi/rpidatv/scripts/images/tcf.jpg"
-        sudo fbi -T 1 -noverbose -a /home/pi/rpidatv/scripts/images/tcf.jpg >/dev/null 2>/dev/null
-      fi
-      (sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &  ## kill fbi once it has done its work
-    elif [ "$MODE_INPUT" == "CARD16MPEG-2" ] || [ "$FORMAT" == "16:9" ]; then
-      if [ "$CAPTIONON" == "on" ]; then
-        rm /home/pi/tmp/caption.png >/dev/null 2>/dev/null
-        rm /home/pi/tmp/tcfw162.jpg >/dev/null 2>/dev/null
-        convert -font "FreeSans" -size 1024x80 xc:transparent -fill white -gravity Center -pointsize 50 -annotate 0 $CALL /home/pi/tmp/caption.png
-        convert /home/pi/rpidatv/scripts/images/tcfw16.jpg /home/pi/tmp/caption.png -geometry +0+478 -composite /home/pi/tmp/tcfw162.jpg
-        IMAGEFILE="/home/pi/tmp/tcfw162.jpg"
-        sudo fbi -T 1 -noverbose -a /home/pi/tmp/tcfw162.jpg >/dev/null 2>/dev/null
-      else
-        IMAGEFILE="/home/pi/rpidatv/scripts/images/tcfw16.jpg"
-        sudo fbi -T 1 -noverbose -a /home/pi/rpidatv/scripts/images/tcfw16.jpg >/dev/null 2>/dev/null
+        IMAGEFILE="/home/pi/rpidatv/scripts/images/smpte.jpg"
+        sudo fbi -T 1 -noverbose -a /home/pi/rpidatv/scripts/images/smpte.jpg >/dev/null 2>/dev/null
       fi
       (sleep 1; sudo killall -9 fbi >/dev/null 2>/dev/null) &  ## kill fbi once it has done its work
     elif [ "$MODE_INPUT" == "CARDHDMPEG-2" ]; then
@@ -2167,13 +2103,9 @@ exit
     # Now generate the stream
     case "$MODE_OUTPUT" in
       "STREAMER")
-        if [ "$FORMAT" == "16:9" ]; then
-          VIDEO_WIDTH=1280
-          VIDEO_HEIGHT=720
-        else
           VIDEO_WIDTH=704
           VIDEO_HEIGHT=480
-        fi
+
 
         # No code for beeps here
         if [ "$AUDIO_CARD" == 0 ]; then
@@ -2191,7 +2123,7 @@ exit
             \
             -f alsa -ac $AUDIO_CHANNELS -ar $AUDIO_SAMPLE \
             -i hw:$AUDIO_CARD_NUMBER,0 \
-            \
+            -filter:a "compand=attacks=0:points=-80/-900|-45/-15|-27/-9|0/-7|20/-7:gain=5" \
             -framerate 29.97 -video_size "$VIDEO_WIDTH"x"$VIDEO_HEIGHT" -c:v h264_omx -b:v 512k \
             -ar 22050 -ac $AUDIO_CHANNELS -ab 64k            \
             -f flv $STREAM_URL/$STREAM_KEY &
@@ -2251,6 +2183,7 @@ exit
             -thread_queue_size 512 \
             -f alsa -ac $AUDIO_CHANNELS -ar $AUDIO_SAMPLE \
             -i hw:$AUDIO_CARD_NUMBER,0 \
+            -filter:a "compand=attacks=0:points=-80/-900|-45/-15|-27/-9|0/-7|20/-7:gain=5" \
             \
             -vf fps=10 -b:v $BITRATE_VIDEO -minrate:v $BITRATE_VIDEO -maxrate:v  $BITRATE_VIDEO \
             -f mpegts  -blocksize 1880 -acodec mp2 -b:a 64K -ar 44100 -ac $AUDIO_CHANNELS\
@@ -2275,14 +2208,16 @@ exit
             -i udp://"$LKVUDP":"$LKVPORT" \
             -c:v h264_omx -b:v 1024k \
             -codec:a aac -b:a 128k \
+            -filter:a "compand=attacks=0:points=-80/-900|-45/-15|-27/-9|0/-7|20/-7:gain=5" \
             -f flv $STREAM_URL/$STREAM_KEY &
         ;;
 
         "PLUTO")
           rpidatv/bin/ffmpeg -thread_queue_size 2048 -fifo_size 229376 \
             -i udp://"$LKVUDP":"$LKVPORT" \
-            -c:v h264_omx -b:v $BITRATE_VIDEO -g 25 \
+            -c:v h264_omx -b:v $BITRATE_VIDEO -g 30 \
             -ar 22050 -ac 2 -ab 64k \
+            -filter:a "compand=attacks=0:points=-80/-900|-45/-15|-27/-9|0/-7|20/-7:gain=5" \
             -f flv \
             rtmp://$PLUTOIP:7272/,$FREQ_OUTPUT,$MODTYPE,$CONSTLN,$SYMBOLRATE_K,$PFEC,-$PLUTOPWR,nocalib,800,32,/$PLUTOCALL, &
         ;;
@@ -2347,7 +2282,7 @@ exit
           -f v4l2 \
           -i $VID_WEBCAM \
           -c:v h264_omx -b:v 1024k \
-          -vf "$CAPTION"scale="$SCALE",fps=30 -g 25 \
+          -vf "$CAPTION"scale="$SCALE",fps=30 -g 30 \
           -f flv $STREAM_URL/$STREAM_KEY &
 
         exit
