@@ -1,3 +1,15 @@
+202603090
+Install DHCP server for standalone LibreSDR
+
+202603030
+Bugfix LibreSDR IP Setting
+
+202603010
+Add support for Libre SDR with DL1JM/PA2JSA firmware
+
+202601020
+Update Muntjac to V1.0
+
 202512231
 Correct OOK48 Test Source
 

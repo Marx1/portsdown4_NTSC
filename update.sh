@@ -295,6 +295,7 @@ sudo apt-get -y install libssl-dev                                      # For li
 sudo apt-get -y install libzstd-dev                                     # For libiio 202309040
 sudo apt-get -y install arp-scan                                        # For List Network Devices
 sudo apt-get -y install cppcheck                                        # For HamTV Merger Client
+sudo apt-get -y install dnsmasq                                         # For dhcp server
 
 # Install libwebsockets if required
 if [ ! -d  /home/pi/libwebsockets ]; then
@@ -1078,6 +1079,15 @@ if ! grep -q muntjacgain= "$PATHSCRIPT"/portsdown_config.txt; then
   echo "t6muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
   echo "t7muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
   echo "t8muntjacgain=10" >> "$PATHSCRIPT"/portsdown_presets.txt
+fi
+
+# Add libreSDR IP setting to config file if not included  202406160
+if ! grep -q libreip= "$PATHSCRIPT"/portsdown_config.txt; then
+  # File needs updating
+  # Delete any blank lines first
+  sed -i -e '/^$/d' "$PATHSCRIPT"/portsdown_config.txt
+  # Add the new entry and a new line 
+  echo "libreip=dhcp" >> "$PATHSCRIPT"/portsdown_config.txt
 fi
 
 # Correct HamTV merger test port 202510030
