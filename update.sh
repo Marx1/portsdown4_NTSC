@@ -187,7 +187,7 @@ DisplayUpdateMsg "Step 4 of 10\nUpdating Software Package List\n\nXXXX------"
 # Because installed version may not be the right one
 cd /home/pi
 if [ ! -f  /etc/apt/preferences.d/vlc ]; then
-  wget https://github.com/${GIT_SRC}/portsdown4/raw/master/scripts/configs/vlc
+  wget https://github.com/${GIT_SRC}/portsdown4_NTSC/raw/master/scripts/configs/vlc
   sudo cp vlc /etc/apt/preferences.d/vlc
 
   sudo apt -y remove vlc*
@@ -484,7 +484,7 @@ cd /home/pi/avc2ts
 rm avc2ts.cpp
 
 # Download the previously selected version of avc2ts.cpp for Portsdown 4
-wget https://github.com/${GIT_SRC}/avc2ts/raw/portsdown4/avc2ts.cpp
+wget https://github.com/${GIT_SRC}/avc2ts/raw/portsdown4_NTSC/avc2ts.cpp
 
 # Make avc2ts with new source
 make
