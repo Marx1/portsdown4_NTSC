@@ -32,7 +32,7 @@ GIT_SRC_FILE=".portsdown_gitsrc"
   
 # Download and install the VLC apt Preferences File 202212090
 cd /home/pi
-wget https://github.com/${GIT_SRC}/portsdown4/raw/master/scripts/configs/vlc
+wget https://github.com/${GIT_SRC}/portsdown4_NTSC/raw/master/scripts/configs/vlc
 sudo cp vlc /etc/apt/preferences.d/vlc
 
 # Amend the sources.list to legacy
