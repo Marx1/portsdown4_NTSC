@@ -32,8 +32,11 @@ GIT_SRC_FILE=".portsdown_gitsrc"
   
 # Download and install the VLC apt Preferences File 202212090
 cd /home/pi
-wget https://github.com/${GIT_SRC}/portsdown4/raw/master/scripts/configs/vlc
+wget https://github.com/${GIT_SRC}/portsdown4_NTSC/raw/master/scripts/configs/vlc
 sudo cp vlc /etc/apt/preferences.d/vlc
+
+# Amend the sources.list to legacy
+sudo bash -c 'echo -e "deb http://legacy.raspbian.org/raspbian/ buster main contrib non-free rpi" > /etc/apt/sources.list' 
 
 # Update the package manager
 echo
@@ -96,6 +99,9 @@ sudo apt-get -y install libssl-dev                                      # For we
 sudo apt-get -y install libzstd-dev                                     # For libiio 202309040
 sudo apt-get -y install arp-scan                                        # For List Network Devices
 sudo apt-get -y install cppcheck                                        # For HamTV Merger Client
+sudo apt-get -y install dnsmasq                                         # For dhcp server
+sudo apt-get -y install socat
+
 
 # Install WiringPi
 cd /home/pi
@@ -617,6 +623,15 @@ mv tsmerge-client-linuxcli-master tsmerge
 cd /home/pi/tsmerge
 make cppcheck && make
 
+# Compile OOK48 Test Source
+echo
+echo "---------------------------------------"
+echo "----- Compiling OOK48 Test Source -----"
+echo "---------------------------------------"
+cd /home/pi/rpidatv/src/ook48
+make
+cp ook48 ../../bin/
+cd /home/pi
 #echo
 #echo "-----------------------------------------"
 #echo "----- Compiling Ancilliary programs -----"
