@@ -147,6 +147,9 @@ MODE_STARTUP=$(get_config_var startup $PCONFIGFILE)
 # It will get over-written if web is enabled
 cp /home/pi/rpidatv/scripts/images/web_not_enabled.png /home/pi/tmp/screen.png
 
+# Reset the restart counter for Meteor Viewer
+echo "restarts=0" > /home/pi/rpidatv/src/meteorview/restart_counter.txt
+
 case "$MODE_STARTUP" in
   Testmenu_boot)
     # Start the Portsdown in the test equipment menu
@@ -207,14 +210,11 @@ esac
 # while [ "$GUI_RETURN_CODE" -gt 127 ] || [ "$GUI_RETURN_CODE" -eq 0 ];  do
 while true; do
 
-  # Wait for fcgi socket release
-  fuser -k 2005/tcp
-  BUSY_SOCKET="$?"
-  while [ "$BUSY_SOCKET" -eq 0 ]; do
-    sleep 1
-    fuser -k 2005/tcp
-    BUSY_SOCKET="$?"
-  done
+  # Kill any process blocking port 2005
+  lsof -ti:2005
+  if [ $? == 0 ] ; then
+    lsof -ti:2005 | xargs kill -9
+  fi
 
   case "$GUI_RETURN_CODE" in
     0)

@@ -50,7 +50,7 @@ int TouchPressure;
 int TouchTrigger = 0;
 bool touchneedsinitialisation = true;
 char DisplayType[31];
-
+bool transport_OK = false;
 
 
 typedef struct
@@ -86,6 +86,7 @@ color_t Black = {.r = 0  , .g = 0  , .b = 0  };
 
 #define PATH_PCONFIG "/home/pi/rpidatv/scripts/portsdown_config.txt"
 #define PATH_CONFIG "/home/pi/rpidatv/src/meteorview/meteorview_config.txt"
+#define PATH_RESTARTS "/home/pi/rpidatv/src/meteorview/restart_counter.txt"
 
 #define MAX_BUTTON 675
 int IndexButtonInArray=0;
@@ -109,7 +110,6 @@ int wbuttonsize = 100;
 int hbuttonsize = 50;
 int rawX, rawY;
 int FinishedButton = 0;
-int i;
 bool freeze = false;
 bool frozen = false;
 
@@ -217,6 +217,7 @@ int xscaleden = 20;       // Denominator for X scaling fraction
 void GetConfigParam(char *PathConfigFile, char *Param, char *Value);
 void SetConfigParam(char *PathConfigFile, char *Param, char *Value);
 void strcpyn(char *outstring, char *instring, int n);
+
 int CheckWebCtlExists();
 void CheckConfigFile();
 void ReadSavedParams();
@@ -290,6 +291,8 @@ void DrawTickMarks();
 void ShowRemoteCaption();
 void ShowConnectFail();
 void ShowStartFail();
+void ShowInternetFail();
+void ShowWaitConnect();
 void DrawYaxisLabels();
 void DrawSettings();
 void DrawTrace(int xoffset, int prev2, int prev1, int current);
@@ -2040,6 +2043,7 @@ void wait_touch()
 
 void CalculateMarkers()
 {
+  int i;
   int maxy = 0;
   int xformaxy = 0;
   int xsum = 0;
@@ -3094,6 +3098,7 @@ void RedrawDisplay()
 
 void *WaitButtonEvent(void * arg)
 {
+  int i;
   int  rawPressure;
 
   for (;;)
@@ -3204,7 +3209,7 @@ void *WaitButtonEvent(void * arg)
         default:
           printf("Menu 1 Error\n");
       }
-      if(i != 8)
+      if ((i != 8) && (PortsdownExitRequested == true))
       {
         PortsdownExitRequested = false;
         Start_Highlights_Menu1();
@@ -5369,7 +5374,7 @@ void DrawEmptyScreen()
   // Write caption if data being sent to server
   if (strcmp(destination, "remote") == 0)
   {
-    ShowRemoteCaption();
+    ShowWaitConnect();
   }
 }
 
@@ -5433,7 +5438,39 @@ void ShowStartFail()
 
   TextMid2(350, 350, "Unable to establish", &font_dejavu_sans_32);
   TextMid2(350, 275, "connection to server", &font_dejavu_sans_32);
-  TextMid2(350, 200, "Re-trying", &font_dejavu_sans_32);
+  TextMid2(350, 200, "      Re-trying      ", &font_dejavu_sans_32);
+}
+
+
+void ShowInternetFail()
+{
+  // Clear the background
+  rectangle(101, 71, 499, 399, 0, 0, 0);
+
+  // Write the caption
+  setForeColour(255, 255, 255);                    // White text
+  setBackColour(0, 0, 0);                          // on Black
+
+  TextMid2(350, 350, "Unable to establish", &font_dejavu_sans_32);
+  TextMid2(350, 275, "connection to internet", &font_dejavu_sans_32);
+  TextMid2(350, 200, "      Re-trying      ", &font_dejavu_sans_32);
+}
+
+
+void ShowWaitConnect()
+{
+  // Clear the background
+  rectangle(101, 71, 499, 399, 0, 0, 0);
+  usleep(1000);
+  rectangle(101, 71, 499, 399, 0, 0, 0);
+
+  // Write the caption
+  setForeColour(255, 255, 255);                    // White text
+  setBackColour(0, 0, 0);                          // on Black
+
+  TextMid2(350, 350, "Waiting to establish", &font_dejavu_sans_32);
+  TextMid2(350, 275, "connection to server", &font_dejavu_sans_32);
+  TextMid2(350, 200, "                    ", &font_dejavu_sans_32);
 }
 
 
@@ -5766,6 +5803,7 @@ static void terminate(int sig)
   app_exit = true;
   printf("Terminating in main\n");
   usleep(1000000);
+  clearScreen();
   char Commnd[255];
   sprintf(Commnd,"stty echo");
   system(Commnd);
@@ -5880,8 +5918,9 @@ int main(int argc, char **argv)
 
   initScreen();
 
-  // Create Touchscreen thread
-  //pthread_create (&thtouchscreen, NULL, &WaitTouchscreenEvent, NULL);
+  // Clear the background of the waterfall/caption area
+  rectangle(101, 71, 499, 399, 0, 0, 0);
+  ShowWaitConnect();
 
   // Check that an SDRPlay is accessible
   if (CheckSDRPlay() != 0)
@@ -5916,19 +5955,19 @@ int main(int argc, char **argv)
 
   UpdateWindow();     // Draw the buttons
 
+
   while(true)
   {
-
-    while (NewData == false)
-    {
-      usleep(100);
-    }
-
     NewData = false;
     activescan = true;
-    
+
     if (strcmp(destination, "local") == 0)
     {
+      while (NewData == false)
+      {
+        usleep(100);
+      }
+
       if (spectrum == true)
       {
         for (pixel = 8; pixel <= 506; pixel++)
@@ -6090,15 +6129,18 @@ int main(int argc, char **argv)
     }
     else  // remote display
     {
+      usleep(1000);  // Reduce processor load
       NewData = true;
       activescan = false;
-              while (freeze)
-              {
-                frozen = true;
-                usleep(100000); // Pause to let things happen if CPU is busy
-              }
-              frozen = false;
-      if (RemoteCaptionDisplayed == false)
+
+      while (freeze)
+      {
+        frozen = true;
+        usleep(100000); // Pause to let things happen if CPU is busy
+      }
+      frozen = false;
+
+      if ((RemoteCaptionDisplayed == false) && (transport_OK == true))
       {
         ShowRemoteCaption();
         printf("Display Caption\n");
@@ -6108,6 +6150,12 @@ int main(int argc, char **argv)
     }
     if (monotonic_ms() >= nextwebupdate)
     {
+      if ((RemoteCaptionDisplayed == false) && (transport_OK == true))
+      {
+        ShowRemoteCaption();
+        printf("Display Caption\n");
+        RemoteCaptionDisplayed = true;
+      }
       UpdateWeb();
       usleep(10000);  // Alow time for paint
       nextwebupdate = nextwebupdate + 1000;

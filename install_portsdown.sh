@@ -9,6 +9,12 @@ if [ $? != 0 ]; then
   exit
 fi
 
+# Check that Portsdown is not already installed
+if [ -d /home/pi/rpidatv ]; then
+  echo "Portsdown already installed.  Use update instead."
+  exit
+fi
+
 # Check which source needs to be loaded
 #GIT_SRC="BritishAmateurTelevisionClub"
 GIT_SRC="Marx1"
@@ -34,6 +40,9 @@ GIT_SRC_FILE=".portsdown_gitsrc"
 cd /home/pi
 wget https://github.com/${GIT_SRC}/portsdown4-NTSC/raw/master/scripts/configs/vlc
 sudo cp vlc /etc/apt/preferences.d/vlc
+
+# Amend the sources.list to legacy
+sudo bash -c 'echo -e "deb http://legacy.raspbian.org/raspbian/ buster main contrib non-free rpi" > /etc/apt/sources.list' 
 
 # Update the package manager
 echo
@@ -67,7 +76,6 @@ echo "----- Installing Packages -----"
 echo "-------------------------------"
 
 sudo apt-get -y install git cmake libusb-1.0-0-dev libfftw3-dev libxcb-shape0 
-sudo apt-get -y install wiringpi                                         # Wiring pi depracated? 
 sudo apt-get -y install libx11-dev buffer libjpeg-dev indent 
 sudo apt-get -y install bc usbmount libvncserver-dev
 sudo apt-get -y install ttf-dejavu-core                                  # being depracated?
@@ -103,6 +111,16 @@ sudo apt-get -y install uhubctl                                         # For SD
 sudo apt-get -y install libssl-dev                                      # For websockets
 sudo apt-get -y install libzstd-dev                                     # For libiio 202309040
 sudo apt-get -y install arp-scan                                        # For List Network Devices
+sudo apt-get -y install cppcheck                                        # For HamTV Merger Client
+sudo apt-get -y install dnsmasq                                         # For dhcp server
+sudo apt-get -y install socat                                           # For debugging network issues
+sudo apt-get -y install lsof                                            # For debugging web control issues
+sudo apt-get -y install python3-dev                                     # For ISS tracker
+sudo apt-get -y install python3-pip                                     # For ISS tracker
+sudo apt-get -y install libhamlib-dev                                   # For ISS tracker
+sudo apt-get -y install libhamlib++-dev                                 # For ISS tracker
+sudo apt-get -y install libhamlib-utils                                 # For ISS tracker
+pip3 install ephem requests                                             # For ISS tracker
 
 
   read -n1 -r -s key;
@@ -113,10 +131,20 @@ sudo apt-get -y install arp-scan                                        # For Li
   
   
 # Install WiringPi
-cd /home/pi
+cd ~
 git clone https://github.com/WiringPi/WiringPi.git
 cd WiringPi
+<<<<<<< HEAD
 rm ./debian-template/wiringpi*.deb   #clear any old junk out
+=======
+
+# Modify so that it installs on 32-bit buster
+cd wiringPi
+sed -i -e 's/\(\[\[gnu::packed\]\]\)//g' bcm_registers.h
+sed -i -e 's/\(\[\[gnu::packed\]\]\)//g' rp1_registers.h
+cd ~/WiringPi
+
+>>>>>>> upstream/master
 ./build debian
 
 
@@ -158,7 +186,7 @@ cd /home/pi
   
   
 # Install Websockets for Meteor Beacon RX server
-git clone https://github.com/warmcat/libwebsockets.git
+git clone -b v4.5-stable --single-branch https://github.com/warmcat/libwebsockets.git
 cd libwebsockets
 cmake ./
 make all
@@ -512,11 +540,15 @@ echo "------------------------------"
 
 cd /home/pi/rpidatv/src/muntjac
 
+<<<<<<< HEAD
 gcc  muntjacsdr_dvb.c  dvbs2neon.S   -lpthread  -o  muntjacsdr_dvb
 gcc  mjcalib-0v1a.c  dvbs2neon.S   -lpthread  -o mjcalib  # only used for manual calibration
+=======
+gcc  muntjacsdr_dvb.c  dvbs2neon.S  -mfpu=neon  -lpthread  -o  muntjacsdr_dvb
+#gcc  mjcalib-0v1a.c  dvbs2neon.S  -mfpu=neon  -lpthread  -o mjcalib  # only used for manual calibration
+>>>>>>> upstream/master
 
 cp muntjacsdr_dvb /home/pi/rpidatv/bin/             # Executable
-cp E46214B063533828.mjo /home/pi/rpidatv/bin/       # LO Suppression file
 
 cd /home/pi
 
@@ -535,6 +567,16 @@ cp dvb_t_stack /home/pi/rpidatv/bin/dvb_t_stack
 cd /home/pi/rpidatv/src/dvb_t_stack
 sudo cp datvexpress16.ihx /lib/firmware/datvexpress/datvexpress16.ihx
 sudo cp datvexpressraw16.rbf /lib/firmware/datvexpress/datvexpressraw16.rbf
+cd /home/pi
+
+echo
+echo "-----------------------------------"
+echo "----- Installing dvb_t2_stack -----"
+echo "-----------------------------------"
+cd /home/pi/rpidatv/src/dvb_t2_stack
+make clean
+make -j $(nproc) PI4=1 dvb_t2_stack
+cp dvb_t2_stack /home/pi/rpidatv/bin/dvb_t2_stack
 cd /home/pi
 
 # Install LongMynd
@@ -685,7 +727,7 @@ make
 cp plutoview ../../bin/
 cd /home/pi
 
-# For Metoeorview and sdrplayview
+# For Meteorview and sdrplayview
 # Download sdrplay api for install after first reboot
 echo
 echo "---------------------------------------"
@@ -694,11 +736,17 @@ echo "---------------------------------------"
 cd /home/pi/rpidatv/src/meteorview
 
 # Download api
+<<<<<<< HEAD
 #wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
 wget https://www.sdrplay.com/software/SDRplay_RSP_API-Linux-3.12.1.run
 
 #chmod +x SDRplay_RSP_API-ARM-3.09.1.run
 chmod +x SDRplay_RSP_API-Linux-3.12.1.run
+=======
+# was wget "https://sdrplay.com/download/hardware-api-linux-32bit-unsupported/?wpdmdl=2341&refresh=6a87239f68e1f1787241375" -O SDRplay_RSP_API-ARM-3.09.1.run
+wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
+chmod +x SDRplay_RSP_API-ARM-3.09.1.run
+>>>>>>> upstream/master
 
 # Create file to trigger install on next reboot
 touch /home/pi/rpidatv/.post-install_actions
@@ -794,6 +842,29 @@ echo "------------------------------------------"
 cd /home/pi/rpidatv/src/rydemon
 make
 cp rydemon ../../bin/
+cd /home/pi
+
+# Compile client for HamTV Merger
+echo
+echo "---------------------------------------------"
+echo "----- Compiling Client for HamTV Merger -----"
+echo "---------------------------------------------"
+
+wget https://github.com/ARISS-UK/tsmerge-client-linuxcli/archive/refs/heads/master.zip
+unzip master.zip
+rm master.zip
+mv tsmerge-client-linuxcli-master tsmerge
+cd /home/pi/tsmerge
+make cppcheck && make
+
+# Compile OOK48 Test Source
+echo
+echo "---------------------------------------"
+echo "----- Compiling OOK48 Test Source -----"
+echo "---------------------------------------"
+cd /home/pi/rpidatv/src/ook48
+make
+cp ook48 ../../bin/
 cd /home/pi
 
 #echo
