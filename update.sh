@@ -462,15 +462,9 @@ wget https://github.com/${GIT_SRC}/portsdown4_NTSC/archive/master.zip -O master.
 
 # Unzip and overwrite where we need to
 unzip -o master.zip
-<<<<<<< HEAD
 cp -f -r portsdown4_NTSC-master/bin rpidatv
 cp -f -r portsdown4_NTSC-master/scripts rpidatv
 cp -f -r portsdown4_NTSC-master/src rpidatv
-=======
-cp -f -r portsdown4-master/bin rpidatv
-cp -f -r portsdown4-master/scripts rpidatv
-cp -f -r -p portsdown4-master/src rpidatv
->>>>>>> e7ec3a86ac05b5dafea907d3bda15e03038fb7b6
 rm -f rpidatv/video/*.jpg
 cp -f -r portsdown4_NTSC-master/video rpidatv
 cp -f -r portsdown4_NTSC-master/version_history.txt rpidatv/version_history.txt
@@ -480,14 +474,9 @@ cp -f portsdown4_NTSC-master/add_ryde.sh rpidatv/add_ryde.sh
 cp -f portsdown4_NTSC-master/update_ryde.sh rpidatv/update_ryde.sh
 
 # Copy the recently added images into the user's back-up image folder
-<<<<<<< HEAD
 cp portsdown4_NTSC-master/scripts/images/web_not_enabled.png "$PATHUBACKUP"/images/web_not_enabled.png
 cp portsdown4_NTSC-master/scripts/images/RX_overlay.png "$PATHUBACKUP"/images/RX_overlay.png
-=======
-cp portsdown4-master/scripts/images/web_not_enabled.png "$PATHUBACKUP"/images/web_not_enabled.png
-cp portsdown4-master/scripts/images/RX_overlay.png "$PATHUBACKUP"/images/RX_overlay.png
-cp portsdown4-master/scripts/images/tcf1080.jpg "$PATHUBACKUP"/images/tcf1080.jpg
->>>>>>> e7ec3a86ac05b5dafea907d3bda15e03038fb7b6
+cp portsdown4_NTSC-master/scripts/images/tcf1080.jpg "$PATHUBACKUP"/images/tcf1080.jpg
 
 rm master.zip
 rm -rf portsdown4_NTSC-master

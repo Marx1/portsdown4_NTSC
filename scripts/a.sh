@@ -1384,11 +1384,6 @@ fi
 
     if [ "$MODE_OUTPUT" == "PLUTO" ] && [ "$MODE_INPUT" == "CARDH264" ] && [ "$MODULATION" != "DVB-T" ] && [ "$MODULATION" != "DVB-T2" ]; then
 
-<<<<<<< HEAD
-      if  [ "$FORMAT" == "720p" ] || [ "$FORMAT" == "1080p" ]; then
-        VIDEO_WIDTH=1280
-        VIDEO_HEIGHT=720
-=======
       if [ "$FORMAT" == "1080p" ]; then
         VIDEO_WIDTH=1920
         VIDEO_HEIGHT=1080
@@ -1420,7 +1415,6 @@ fi
       elif [ "$FORMAT" == "16:9" ]; then
         VIDEO_WIDTH=1024
         VIDEO_HEIGHT=576
->>>>>>> e7ec3a86ac05b5dafea907d3bda15e03038fb7b6
         if [ "$CAPTIONON" == "on" ]; then
           rm /home/pi/tmp/caption.png >/dev/null 2>/dev/null
           rm /home/pi/tmp/tcfw162.jpg >/dev/null 2>/dev/null

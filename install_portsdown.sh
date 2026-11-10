@@ -105,10 +105,6 @@ sudo apt-get -y install libzstd-dev                                     # For li
 sudo apt-get -y install arp-scan                                        # For List Network Devices
 sudo apt-get -y install cppcheck                                        # For HamTV Merger Client
 sudo apt-get -y install dnsmasq                                         # For dhcp server
-<<<<<<< HEAD
-sudo apt-get -y install socat
-
-=======
 sudo apt-get -y install socat                                           # For debugging network issues
 sudo apt-get -y install lsof                                            # For debugging web control issues
 sudo apt-get -y install python3-dev                                     # For ISS tracker
@@ -117,7 +113,6 @@ sudo apt-get -y install libhamlib-dev                                   # For IS
 sudo apt-get -y install libhamlib++-dev                                 # For ISS tracker
 sudo apt-get -y install libhamlib-utils                                 # For ISS tracker
 pip3 install ephem requests                                             # For ISS tracker
->>>>>>> e7ec3a86ac05b5dafea907d3bda15e03038fb7b6
 
 # Install WiringPi
 cd ~
@@ -665,10 +660,6 @@ cd /home/pi/rpidatv/src/ook48
 make
 cp ook48 ../../bin/
 cd /home/pi
-<<<<<<< HEAD
-=======
-
->>>>>>> e7ec3a86ac05b5dafea907d3bda15e03038fb7b6
 #echo
 #echo "-----------------------------------------"
 #echo "----- Compiling Ancilliary programs -----"

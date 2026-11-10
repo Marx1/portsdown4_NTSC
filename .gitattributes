@@ -1,0 +1,3 @@
+"install_portsdown.sh merge=ours" 
+"scripts/a.sh merge=ours" 
+"update.sh merge=ours" 
