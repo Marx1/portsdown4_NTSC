@@ -9,6 +9,12 @@ if [ $? != 0 ]; then
   exit
 fi
 
+# Check that Portsdown is not already installed
+if [ -d /home/pi/rpidatv ]; then
+  echo "Portsdown already installed.  Use update instead."
+  exit
+fi
+
 # Check which source needs to be loaded
 #GIT_SRC="BritishAmateurTelevisionClub"
 GIT_SRC="Marx1"
@@ -70,7 +76,6 @@ echo "----- Installing Packages -----"
 echo "-------------------------------"
 
 sudo apt-get -y install git cmake libusb-1.0-0-dev libfftw3-dev libxcb-shape0 
-sudo apt-get -y install wiringpi                                         # Wiring pi depracated? 
 sudo apt-get -y install libx11-dev buffer libjpeg-dev indent 
 sudo apt-get -y install bc usbmount libvncserver-dev
 sudo apt-get -y install ttf-dejavu-core                                  # being depracated?
@@ -100,13 +105,31 @@ sudo apt-get -y install libzstd-dev                                     # For li
 sudo apt-get -y install arp-scan                                        # For List Network Devices
 sudo apt-get -y install cppcheck                                        # For HamTV Merger Client
 sudo apt-get -y install dnsmasq                                         # For dhcp server
+<<<<<<< HEAD
 sudo apt-get -y install socat
 
+=======
+sudo apt-get -y install socat                                           # For debugging network issues
+sudo apt-get -y install lsof                                            # For debugging web control issues
+sudo apt-get -y install python3-dev                                     # For ISS tracker
+sudo apt-get -y install python3-pip                                     # For ISS tracker
+sudo apt-get -y install libhamlib-dev                                   # For ISS tracker
+sudo apt-get -y install libhamlib++-dev                                 # For ISS tracker
+sudo apt-get -y install libhamlib-utils                                 # For ISS tracker
+pip3 install ephem requests                                             # For ISS tracker
+>>>>>>> e7ec3a86ac05b5dafea907d3bda15e03038fb7b6
 
 # Install WiringPi
-cd /home/pi
+cd ~
 git clone https://github.com/WiringPi/WiringPi.git
 cd WiringPi
+
+# Modify so that it installs on 32-bit buster
+cd wiringPi
+sed -i -e 's/\(\[\[gnu::packed\]\]\)//g' bcm_registers.h
+sed -i -e 's/\(\[\[gnu::packed\]\]\)//g' rp1_registers.h
+cd ~/WiringPi
+
 ./build debian
 
 # Read latest WiringPi version number and install it
@@ -127,7 +150,7 @@ sudo make install
 cd /home/pi
 
 # Install Websockets for Meteor Beacon RX server
-git clone https://github.com/warmcat/libwebsockets.git
+git clone -b v4.5-stable --single-branch https://github.com/warmcat/libwebsockets.git
 cd libwebsockets
 cmake ./
 make all
@@ -382,10 +405,9 @@ echo "------------------------------"
 cd /home/pi/rpidatv/src/muntjac
 
 gcc  muntjacsdr_dvb.c  dvbs2neon.S  -mfpu=neon  -lpthread  -o  muntjacsdr_dvb
-gcc  mjcalib-0v1a.c  dvbs2neon.S  -mfpu=neon  -lpthread  -o mjcalib  # only used for manual calibration
+#gcc  mjcalib-0v1a.c  dvbs2neon.S  -mfpu=neon  -lpthread  -o mjcalib  # only used for manual calibration
 
 cp muntjacsdr_dvb /home/pi/rpidatv/bin/             # Executable
-cp E46214B063533828.mjo /home/pi/rpidatv/bin/       # LO Suppression file
 
 cd /home/pi
 
@@ -402,6 +424,16 @@ cp dvb_t_stack /home/pi/rpidatv/bin/dvb_t_stack
 cd /home/pi/rpidatv/src/dvb_t_stack
 sudo cp datvexpress16.ihx /lib/firmware/datvexpress/datvexpress16.ihx
 sudo cp datvexpressraw16.rbf /lib/firmware/datvexpress/datvexpressraw16.rbf
+cd /home/pi
+
+echo
+echo "-----------------------------------"
+echo "----- Installing dvb_t2_stack -----"
+echo "-----------------------------------"
+cd /home/pi/rpidatv/src/dvb_t2_stack
+make clean
+make -j $(nproc) PI4=1 dvb_t2_stack
+cp dvb_t2_stack /home/pi/rpidatv/bin/dvb_t2_stack
 cd /home/pi
 
 # Install LongMynd
@@ -514,7 +546,7 @@ make
 cp plutoview ../../bin/
 cd /home/pi
 
-# For Metoeorview and sdrplayview
+# For Meteorview and sdrplayview
 # Download sdrplay api for install after first reboot
 echo
 echo "---------------------------------------"
@@ -523,6 +555,7 @@ echo "---------------------------------------"
 cd /home/pi/rpidatv/src/meteorview
 
 # Download api
+# was wget "https://sdrplay.com/download/hardware-api-linux-32bit-unsupported/?wpdmdl=2341&refresh=6a87239f68e1f1787241375" -O SDRplay_RSP_API-ARM-3.09.1.run
 wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
 chmod +x SDRplay_RSP_API-ARM-3.09.1.run
 
@@ -632,13 +665,14 @@ cd /home/pi/rpidatv/src/ook48
 make
 cp ook48 ../../bin/
 cd /home/pi
+<<<<<<< HEAD
+=======
+
+>>>>>>> e7ec3a86ac05b5dafea907d3bda15e03038fb7b6
 #echo
 #echo "-----------------------------------------"
 #echo "----- Compiling Ancilliary programs -----"
 #echo "-----------------------------------------"
-
-
-
 
 
 # Compile and install the executable for GPIO-switched transmission (201710080)
