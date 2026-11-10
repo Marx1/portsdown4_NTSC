@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "font/font.h"
 
 
@@ -337,6 +338,8 @@ void setLargePixel(int x, int y, int size, int R, int G, int B)
 
 void closeScreen(void)
 {
+  free(mfbp);
+  free(cfbp);
   munmap(fbp, screenSize);
   close(fbfd);
 }
@@ -792,21 +795,29 @@ int initScreen(void)
   struct fb_fix_screeninfo finfo;
  
   fbfd = open("/dev/fb0", O_RDWR);
-  if (!fbfd) 
+  if (fbfd < 0)
   {
-    printf("Error: cannot open framebuffer device.\n");
+    perror("Error opening framebuffer device");
     return(0);
   }
 
   if (ioctl(fbfd, FBIOGET_FSCREENINFO, &finfo)) 
   {
-    printf("Error reading fixed information.\n");
+    perror("Error reading fixed framebuffer information");
+    close(fbfd);
     return(0);
   }
 
   if (ioctl(fbfd, FBIOGET_VSCREENINFO, &vinfo)) 
   {
-    printf("Error reading variable information.\n");
+    perror("Error reading variable framebuffer information");
+    close(fbfd);
+    return(0);
+  }
+  if (vinfo.bits_per_pixel != 32 || finfo.line_length != vinfo.xres * 4)
+  {
+    fprintf(stderr, "Unsupported framebuffer: expected 32-bit, tightly packed pixels\n");
+    close(fbfd);
     return(0);
   }
   
@@ -814,22 +825,34 @@ int initScreen(void)
   screenYsize=vinfo.yres;
   
   screenSize = finfo.smem_len;
+  if (screenSize <= 0)
+  {
+    fprintf(stderr, "Framebuffer reports an invalid size\n");
+    close(fbfd);
+    return(0);
+  }
   fbp = (char*)mmap(0, screenSize, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
+  if (fbp == MAP_FAILED)
+  {
+    perror("Error mapping framebuffer");
+    close(fbfd);
+    return(0);
+  }
 
   // Create frame store for use under mouse
   mfbp = malloc(screenSize);
 
   // Create frame store for use to build the cursor
   cfbp = (char*)malloc(screenSize);
-                    
-  if ((int)fbp == -1) 
+  if (mfbp == NULL || cfbp == NULL)
   {
+    fprintf(stderr, "Unable to allocate framebuffer copies\n");
+    free(mfbp);
+    free(cfbp);
+    munmap(fbp, screenSize);
+    close(fbfd);
     return 0;
   }
-  else 
-  {
-    return 1;
-  }
+  return 1;
 
 }
-

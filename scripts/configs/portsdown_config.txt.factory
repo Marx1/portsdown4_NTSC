@@ -40,6 +40,7 @@ batcoutput=streamname
 streamurl=rtmp://rtmp.batc.org.uk/live
 streamkey=callsign-keykey
 outputstandard=576
+h264backend=legacy
 numbers=3333
 pilots=off
 frames=long
@@ -61,4 +62,3 @@ webcontrol=disabled
 langstone=none
 upsample=1
 timeoverlay=off
-

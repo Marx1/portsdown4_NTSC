@@ -480,15 +480,26 @@ echo
 echo "-------------------------------------"
 echo "----- Updating the H264 Encoder -----"
 echo "-------------------------------------"
-cd /home/pi/avc2ts
-rm avc2ts.cpp
-
-# Download the previously selected version of avc2ts.cpp for Portsdown 4
-wget https://github.com/${GIT_SRC}/avc2ts/raw/portsdown4_NTSC/avc2ts.cpp
-
-# Make avc2ts with new source
-make
-cp avc2ts ../rpidatv/bin/
+if [ -f /home/pi/avc2ts/avc2ts.cpp ]; then
+  cd /home/pi/avc2ts
+  # The Marx1/avc2ts portsdown4_NTSC branch does not exist. Match the
+  # BATC portsdown4 source used by the initial installer instead.
+  cp avc2ts.cpp avc2ts.cpp.before-update
+  if wget -q -O avc2ts.cpp.download \
+      https://raw.githubusercontent.com/BritishAmateurTelevisionClub/avc2ts/portsdown4/avc2ts.cpp \
+      && [ -s avc2ts.cpp.download ]; then
+    mv avc2ts.cpp.download avc2ts.cpp
+    if ! make || ! install -m 0755 avc2ts ../rpidatv/bin/avc2ts.new \
+        || ! mv ../rpidatv/bin/avc2ts.new ../rpidatv/bin/avc2ts; then
+      mv avc2ts.cpp.before-update avc2ts.cpp
+      echo "H264 encoder build failed; retained installed encoder and restored source." >&2
+    fi
+  else
+    echo "H264 encoder download failed; retained installed encoder and source." >&2
+  fi
+else
+  echo "No legacy avc2ts source found; skipping legacy encoder update."
+fi
 cd /home/pi
 
 DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\nLongMynd Receiver\nXXXXXX----"

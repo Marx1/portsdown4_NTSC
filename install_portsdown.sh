@@ -2,6 +2,19 @@
 
 # Portsdown 4 Install by davecrump on 20230227
 
+# This installer rewrites apt sources and configures the legacy Buster camera
+# stack. Never run those operations on a newer Raspberry Pi OS release.
+if [ ! -r /etc/os-release ]; then
+  echo "Cannot identify the operating system; installation stopped." >&2
+  exit 1
+fi
+. /etc/os-release
+if [ "${VERSION_CODENAME:-}" != "buster" ] || [ "$(dpkg --print-architecture)" != "armhf" ]; then
+  echo "This installer supports Raspberry Pi OS Buster 32-bit only." >&2
+  echo "Do not use it for a Bookworm or Trixie system; no Trixie installer is ready yet." >&2
+  exit 1
+fi
+
 # Check current user
 whoami | grep -q pi
 if [ $? != 0 ]; then
@@ -752,5 +765,4 @@ sleep 1
 
 sudo reboot now
 exit
-
 

@@ -69,6 +69,16 @@ ANALOGCAMSTANDARD=$(get_config_var analogcamstandard $PCONFIGFILE)
 AUDIO_PREF=$(get_config_var audio $PCONFIGFILE)
 CAPTIONON=$(get_config_var caption $PCONFIGFILE)
 OPSTD=$(get_config_var outputstandard $PCONFIGFILE)
+H264_BACKEND=${PORTSDOWN_H264_BACKEND:-$(get_config_var h264backend "$PCONFIGFILE")}
+H264_BACKEND=${H264_BACKEND:-legacy}
+case "$H264_BACKEND" in
+  legacy|ffmpeg) ;;
+  *) echo "Unknown H.264 backend: $H264_BACKEND" >&2; exit 2 ;;
+esac
+if [ "$H264_BACKEND" == "ffmpeg" ] && ! command -v ffmpeg >/dev/null 2>&1; then
+  echo "The FFmpeg H.264 backend requires ffmpeg in PATH" >&2
+  exit 2
+fi
 DISPLAY=$(get_config_var display $PCONFIGFILE)
 
 BAND_LABEL=$(get_config_var labelofband $PCONFIGFILE)
@@ -1247,7 +1257,51 @@ fi
 
     # Now generate the stream
 
-    if [ "$AUDIO_CARD" == 0 ]; then
+    if [ "$H264_BACKEND" == "ffmpeg" ]; then
+      # avc2ts uses OpenMAX and always advertises 25 fps in its DVB AU metadata.
+      # The FFmpeg backend makes real 30000/1001 NTSC (or 25 fps PAL) TS.
+      if [ "$OPSTD" == "480" ]; then
+        VIDEO_STANDARD=ntsc
+        if [ "$MODE_INPUT" == "ANALOGCAM" ]; then
+          VIDEO_WIDTH=720
+          VIDEO_HEIGHT=480
+        fi
+      else
+        VIDEO_STANDARD=pal
+        if [ "$MODE_INPUT" == "ANALOGCAM" ]; then
+          VIDEO_WIDTH=720
+          VIDEO_HEIGHT=576
+        fi
+      fi
+
+      if [ "$MODE_OUTPUT" == "IP" ]; then
+        H264_OUTPUT="udp://$UDPOUTADDR:$UDPOUTPORT?pkt_size=1316"
+      elif [ "$MODULATION" == "DVB-T" ] && [ -n "$OUTPUT_IP" ]; then
+        H264_TARGET=${OUTPUT_IP#-n}
+        H264_TARGET=${H264_TARGET# }
+        H264_OUTPUT="udp://$H264_TARGET?pkt_size=1316"
+      elif [ "$MODE_OUTPUT" == "COMPVID" ]; then
+        H264_OUTPUT=/dev/null
+      else
+        H264_OUTPUT=videots
+      fi
+
+      H264_ARGS=(--source "$ANALOGCAMNAME" --output "$H264_OUTPUT"
+        --standard "$VIDEO_STANDARD" --size "${VIDEO_WIDTH}x${VIDEO_HEIGHT}"
+        --video-bitrate "$BITRATE_VIDEO" --muxrate "$BITRATE_TS"
+        --pmt-pid "$PIDPMT" --service-id "$SERVICEID" --service-name "$CALL"
+        --gop "$IDRPERIOD")
+      if [ "$MODE_INPUT" == "ANALOGCAM" ]; then
+        H264_ARGS+=(--deinterlace)
+      fi
+      if [ "$AUDIO_CARD" != 0 ]; then
+        H264_ARGS+=(--audio-device "plughw:$AUDIO_CARD_NUMBER,0"
+          --audio-bitrate "$BITRATE_AUDIO" --audio-channels "$AUDIO_CHANNELS"
+          --audio-rate "$AUDIO_SAMPLE")
+      fi
+      "$PATHSCRIPT/h264_ts_ffmpeg.sh" "${H264_ARGS[@]}" &
+
+    elif [ "$AUDIO_CARD" == 0 ]; then
       # ******************************* H264 VIDEO, NO AUDIO ************************************
 
       sudo $PATHRPI"/avc2ts" -b $BITRATE_VIDEO -m $BITRATE_TS -d 300 -x $VIDEO_WIDTH -y $VIDEO_HEIGHT \
