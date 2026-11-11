@@ -2025,7 +2025,7 @@ void GetGPUTemp(char GPUTemp[256])
   FILE *fp;
 
   /* Open the command for reading. */
-  fp = popen("/opt/vc/bin/vcgencmd measure_temp", "r");
+  fp = popen("vcgencmd measure_temp", "r");
   if (fp == NULL) {
     printf("Failed to run command\n" );
     exit(1);
@@ -31398,7 +31398,11 @@ int main(int argc, char **argv)
   hbuttonsize=hscreen/6;
 
   // Initialise direct access to the 7 inch screen
-  initScreen();
+  if (!initScreen())
+  {
+    fprintf(stderr, "GUI cannot start without a supported framebuffer\n");
+    return 1;
+  }
 
   // Read in the presets from the Config files
   ReadPresets();
