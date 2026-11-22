@@ -22,6 +22,9 @@ Options:
   --gop FRAMES             Maximum GOP length (default: 60)
   --video-encoder MODE      software (libx264, default), hardware (Pi V4L2 M2M),
                            or auto (probe hardware, otherwise use libx264)
+  --input-format FORMAT     V4L2 camera format, e.g. mjpeg (default: driver choice)
+  --capture-size WIDTHxHEIGHT  V4L2 capture size (default: driver choice)
+  --capture-rate FPS        V4L2 capture frame rate (default: driver choice)
   --deinterlace            Deinterlace analog capture before encoding
   --duration SECONDS       Stop after this duration (useful for offline tests)
 EOF
@@ -46,12 +49,15 @@ service_id=1
 service_name=Portsdown
 gop=60
 video_encoder=software
+input_format=
+capture_size=
+capture_rate=
 duration=
 deinterlace=false
 
 while (($#)); do
   case "$1" in
-    --source|--output|--standard|--size|--video-bitrate|--muxrate|--audio-device|--audio-bitrate|--audio-channels|--audio-rate|--pmt-pid|--service-id|--service-name|--gop|--video-encoder|--duration)
+    --source|--output|--standard|--size|--video-bitrate|--muxrate|--audio-device|--audio-bitrate|--audio-channels|--audio-rate|--pmt-pid|--service-id|--service-name|--gop|--video-encoder|--input-format|--capture-size|--capture-rate|--duration)
       need_value "$@"
       case "$1" in
         --source) source_device=$2;;
@@ -69,6 +75,9 @@ while (($#)); do
         --service-name) service_name=$2;;
         --gop) gop=$2;;
         --video-encoder) video_encoder=$2;;
+        --input-format) input_format=$2;;
+        --capture-size) capture_size=$2;;
+        --capture-rate) capture_rate=$2;;
         --duration) duration=$2;;
       esac
       shift 2;;
@@ -85,6 +94,15 @@ case "$standard" in
   *) fail "unsupported standard: $standard";;
 esac
 [[ "$size" =~ ^[0-9]+x[0-9]+$ ]] || fail 'size must be WIDTHxHEIGHT'
+if [[ -n "$capture_size" ]]; then
+  [[ "$capture_size" =~ ^[0-9]+x[0-9]+$ ]] || fail 'capture size must be WIDTHxHEIGHT'
+fi
+if [[ -n "$capture_rate" ]]; then
+  [[ "$capture_rate" =~ ^[0-9]+([.][0-9]+)?$ ]] || fail 'capture rate must be a positive FPS value'
+fi
+if [[ "$source_device" == testsrc && ( -n "$input_format" || -n "$capture_size" || -n "$capture_rate" ) ]]; then
+  fail 'V4L2 input options cannot be used with testsrc'
+fi
 for number in "$video_bitrate" "$muxrate" "$audio_bitrate" "$audio_channels" "$audio_rate" "$pmt_pid" "$service_id" "$gop"; do
   is_uint "$number" || fail 'bitrate, PID, channel, rate, service ID and GOP values must be integers'
 done
@@ -131,7 +149,11 @@ ffmpeg_args=(-hide_banner -loglevel warning -nostdin)
 if [[ "$source_device" == testsrc ]]; then
   ffmpeg_args+=(-f lavfi -i "testsrc2=size=$size:rate=$frame_rate")
 else
-  ffmpeg_args+=(-thread_queue_size 2048 -f v4l2 -i "$source_device")
+  ffmpeg_args+=(-thread_queue_size 2048 -f v4l2)
+  if [[ -n "$input_format" ]]; then ffmpeg_args+=(-input_format "$input_format"); fi
+  if [[ -n "$capture_size" ]]; then ffmpeg_args+=(-video_size "$capture_size"); fi
+  if [[ -n "$capture_rate" ]]; then ffmpeg_args+=(-framerate "$capture_rate"); fi
+  ffmpeg_args+=(-i "$source_device")
 fi
 if [[ -n "$audio_device" ]]; then
   if [[ "$audio_device" == testtone ]]; then
