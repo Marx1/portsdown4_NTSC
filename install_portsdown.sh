@@ -41,16 +41,80 @@ cd /home/pi
 wget https://github.com/${GIT_SRC}/portsdown4_NTSC/raw/master/scripts/configs/vlc
 sudo cp vlc /etc/apt/preferences.d/vlc
 
-# Amend the sources.list to legacy
-sudo bash -c 'echo -e "deb http://legacy.raspbian.org/raspbian/ buster main contrib non-free rpi" > /etc/apt/sources.list' 
+
+# Configure legacy Raspbian Buster repositories
+echo
+echo "------------------------------------------------"
+echo "----- Configuring Buster APT Repositories -----"
+echo "------------------------------------------------"
+
+# This installer targets Raspberry Pi OS Buster
+. /etc/os-release
+
+if [ "${VERSION_CODENAME:-}" != "buster" ]; then
+  echo "ERROR: This installer requires Raspberry Pi OS Buster."
+  echo "Detected: ${PRETTY_NAME:-Unknown}"
+  exit 1
+fi
+
+# Back up existing repository configuration
+APT_BACKUP="/etc/apt/portsdown-backup-$(date +%Y%m%d-%H%M%S)"
+sudo mkdir -p "$APT_BACKUP"
+
+sudo cp -a /etc/apt/sources.list "$APT_BACKUP/" || exit 1
+
+if [ -d /etc/apt/sources.list.d ]; then
+  sudo cp -a /etc/apt/sources.list.d "$APT_BACKUP/" || exit 1
+fi
+
+# Replace obsolete Raspbian mirrors with the legacy archive.
+# Do not modify archive.raspberrypi.org/debian, which is
+# a separate repository for Raspberry Pi-specific packages.
+
+for source_file in /etc/apt/sources.list \
+                   /etc/apt/sources.list.d/*.list; do
+
+  [ -f "$source_file" ] || continue
+
+  sudo sed -i -E \
+    '/^[[:space:]]*deb(-src)?[[:space:]]/ {
+      /[[:space:]]buster[[:space:]]/ {
+        s@https?://(raspbian\.raspberrypi\.org|archive\.raspbian\.org|mirrordirector\.raspbian\.org)/raspbian/?@https://legacy.raspbian.org/raspbian/@g
+      }
+    }' "$source_file" || exit 1
+done
+
+# Make sure the Raspbian Buster repository exists
+if ! grep -Eh \
+  '^[[:space:]]*deb[[:space:]].*legacy\.raspbian\.org/raspbian/?.*[[:space:]]buster[[:space:]]' \
+  /etc/apt/sources.list \
+  /etc/apt/sources.list.d/*.list 2>/dev/null | grep -q .; then
+
+  echo "Adding missing Raspbian Buster repository."
+
+  echo "deb https://legacy.raspbian.org/raspbian/ buster main contrib non-free rpi" | \
+    sudo tee -a /etc/apt/sources.list >/dev/null || exit 1
+fi
 
 # Update the package manager
 echo
 echo "------------------------------------"
 echo "----- Updating Package Manager -----"
 echo "------------------------------------"
-sudo dpkg --configure -a
-sudo apt-get update --allow-releaseinfo-change
+
+sudo dpkg --configure -a || exit 1
+
+if ! sudo apt-get update --allow-releaseinfo-change; then
+  echo
+  echo "ERROR: APT update failed."
+  echo "Check the repository errors above."
+  echo "APT configuration backup: $APT_BACKUP"
+  exit 1
+fi
+
+echo
+echo "APT repositories updated successfully."
+
 
 # Uninstall the apt-listchanges package to allow silent install of ca certificates (201704030)
 # http://unix.stackexchange.com/questions/124468/how-do-i-resolve-an-apparent-hanging-update-process
