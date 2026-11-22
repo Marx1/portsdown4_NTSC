@@ -268,18 +268,18 @@ if [[ "$?" != "0" ]]; then
 fi
 
 echo
-echo "--------------------------------------------------------------"
-echo "----- Downloading Portsdown 4 version of avc2ts Software -----"
-echo "--------------------------------------------------------------"
+echo "--------------------------------------------------"
+echo "----- Cloning Marx1 avc2ts Source Repository -----"
+echo "--------------------------------------------------"
 
-# Download the previously selected version of avc2ts for Portsdown 4
-cd /home/pi	
-wget https://github.com/BritishAmateurTelevisionClub/avc2ts/archive/refs/heads/portsdown4.zip
+cd /home/pi
 
-# Unzip the avc2ts software and copy to the Pi
-unzip -o portsdown4.zip
-mv avc2ts-portsdown4 avc2ts
-rm portsdown4.zip
+git clone --branch master \
+  https://github.com/Marx1/avc2ts.git \
+  /home/pi/avc2ts || exit 1
+
+echo "avc2ts source downloaded successfully."
+
 
 # Compile rpidatv gui
 echo
@@ -328,9 +328,11 @@ make V=1 -f linux.mk
 cd ../
 
 # Make avc2ts
-cd /home/pi/avc2ts
-make
-cp avc2ts ../rpidatv/bin/
+cd /home/pi/avc2ts || exit 1
+
+make || exit 1
+install -m 755 avc2ts /home/pi/rpidatv/bin/avc2ts || exit 1
+
 cd /home/pi
 
 echo

@@ -66,26 +66,11 @@ GIT_SRC_FILE=".portsdown_gitsrc"
 if [ -e ${GIT_SRC_FILE} ]; then
   GIT_SRC=$(</home/pi/${GIT_SRC_FILE})
 else
-  GIT_SRC="BritishAmateurTelevisionClub"
+  GIT_SRC="Marx1"
 fi
 
-## If previous version was Dev (davecrump), load production by default
-if [ "$GIT_SRC" == "davecrump" ]; then
-  GIT_SRC="BritishAmateurTelevisionClub"
-fi
+if [ "$GIT_SRC" == "Marx1" ]; then  echo "Updating to latest Production Portsdown NTSC RPi 4 build";
 
-if [ "$1" == "-d" ]; then
-  echo "Overriding to update to latest development version"
-  GIT_SRC="davecrump"
-fi
-
-if [ "$GIT_SRC" == "BritishAmateurTelevisionClub" ]; then
-  echo "Updating to latest Production Portsdown RPi 4 build";
-elif [ "$GIT_SRC" == "davecrump" ]; then
-  echo "Updating to latest development Portsdown RPi 4 build";
-else
-  echo "Updating to latest ${GIT_SRC} development Portsdown RPi 4 build";
-fi
 
 printf "Pausing Streamer or TX if running.\n\n"
 sudo killall keyedstream >/dev/null 2>/dev/null
@@ -571,15 +556,59 @@ echo
 echo "-------------------------------------"
 echo "----- Updating the H264 Encoder -----"
 echo "-------------------------------------"
-cd /home/pi/avc2ts
-rm avc2ts.cpp
 
-# Download the previously selected version of avc2ts.cpp for Portsdown 4
-wget https://github.com/${GIT_SRC}/avc2ts/raw/portsdown4_NTSC/avc2ts.cpp
+AVC2TS_DIR="/home/pi/avc2ts"
+AVC2TS_REPO="https://github.com/Marx1/avc2ts.git"
 
-# Make avc2ts with new source
-make
-cp avc2ts ../rpidatv/bin/
+cd /home/pi || exit 1
+
+# Check for an existing avc2ts installation
+if [ ! -d "$AVC2TS_DIR" ]; then
+  echo "avc2ts not found. Cloning repository."
+
+  git clone --branch master \
+    "$AVC2TS_REPO" "$AVC2TS_DIR" || exit 1
+fi
+
+cd "$AVC2TS_DIR" || exit 1
+
+# Migrate older ZIP-based installations to Git
+if [ ! -d .git ]; then
+  echo "Converting existing avc2ts installation to Git."
+
+  git init || exit 1
+  git remote add origin "$AVC2TS_REPO" || exit 1
+fi
+
+# Ensure the correct repository is configured
+git remote set-url origin "$AVC2TS_REPO" || exit 1
+
+# Retrieve the latest master branch
+echo "Fetching latest avc2ts source."
+
+git fetch origin master || exit 1
+git reset --hard FETCH_HEAD || exit 1
+
+# Verify required dependencies are present
+if [ ! -f libmpegts/libmpegts.a ] || \
+   [ ! -f libyuv/libyuv.a ]; then
+  echo "ERROR: avc2ts build dependencies are missing."
+  echo "libmpegts and libyuv must be built first."
+  exit 1
+fi
+
+# Recompile the updated source
+echo "Compiling avc2ts."
+
+make clean || exit 1
+make || exit 1
+
+# Install the new executable
+install -m 755 avc2ts \
+  /home/pi/rpidatv/bin/avc2ts || exit 1
+
+echo "avc2ts updated successfully."
+
 cd /home/pi
 
 DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\nLongMynd Receiver\nXXXXXX----"
