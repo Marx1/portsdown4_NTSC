@@ -7,6 +7,42 @@ This version is based on Raspberry Pi OS Buster Lite and is only compatible with
 
 Our thanks to Evariste, Heather, Charles and all the other contributors to this community project.  All code within the project is GPL.
 
+# Known working Input, output and Encoding settings
+| Video Source   | Video Format | Modulator Hardware | Modulation[^1] | Encoder | Text overlay supported? | Supported FPS | Quality Scale | Works with W6CX |
+| :------------: | :----------: | :----------------: | :----------: | :-----: | :---------------------: | :-----------: | :-----------: | :-----------: |
+| Comp Vid       | 4:3 (480p)   | Lime Mini          | DVB-S        | MPEG-2   | Yes                     | 29.97         | Average      | Yes, Both inputs |
+| Comp Vid       | 4:3 (480p)   | Lime Mini          | DVB-S2       | MPEG-2   | Yes                     | 30            | Average      | Yes, Both inputs |
+| Comp Vid       | 4:3 (480p)   | Lime Mini          | DVB-S2       | H264    | No                      | 30            | Average      | Yes, Both inputs |
+| Logitech C920X[^2] | 4:3 (480p)[^3] | Lime Mini          | DVB-S        | MPEG-2   | Yes                     | 30            | Good         | Yes, Both inputs |
+| Logitech C920X[^2] | 4:3 (480p)[^3] | Lime Mini          | DVB-S2       | MPEG-2   | Yes                     | 30            | Good         | Yes, Both inputs |
+| Logitech C920X[^2] | 4:3 (D1)[^4]   | Lime Mini          | DVB-S2       | H264    | No                      | 30            |   Good        | Yes, Both inputs |
+| Logitech C920X[^2] | 720P           | Lime Mini          | DVB-S        | MPEG-2   | Yes                      | 10            | Good, Low FPS | NO |
+| Elgato Camlink 4K [^5] | 4:3 (480p)       | Lime Mini          | DVB-S       | MPEG-2   | No                      | 30            | Good, Aspect ratio compressed | Yes, Both inputs | 
+| Elgato Camlink 4K [^5] | 720P      | Lime Mini          | DVB-S       | MPEG-2    | No                      | 30            | Good to Great, Limited by synbol rate  | Not recomended, 1273 only |
+| Elgato Camlink 4K [^5] | 1080P       | Lime Mini          | DVB-S       | MPEG-2   | No                      | 30            | Good to Great, Limited by synbol rate | Not recomended, 1273 only |
+| Elgato Camlink 4K [^5] | 4:3 (480p)       | Lime Mini          | DVB-S2      | MPEG-2    | No                      | 30            | Good, Aspect ratio compressed |  Yes, 1273 only |
+| Elgato Camlink 4K [^5] | 720P       | Lime Mini          | DVB-S2       | MPEG-2    | No                      | 30            | Good, Limited by synbol rate  | Not recomended, 1273 only |
+| Elgato Camlink 4K [^5] | 1080P       | Lime Mini          | DVB-S2       | H264  | No                      | 30            | Average, Limited by synbol rate |Not recomended, 1273 only |
+| Elgato Camlink 4K [^5] | 4:3 (480p)       | Lime Mini          | DVB-S2      | H264   | No                      | 30            | Good, Aspect ratio compressed | Yes, 1273 only |
+| Elgato Camlink 4K [^5] | 720P       | Lime Mini          | DVB-S2       | H264   | No                      | 30            | Great | Yes, 1273 only |
+| Elgato Camlink 4K [^5] | 1080P       | Lime Mini          | DVB-S2       | H264  | No                      | 30            | Great to Amazing, Depends on synbol rate | Yes, 1273 only |
+
+
+[^1]: For Modulation, We've only tested DVB-S vs S2, not each subtype of S2 (IE QPSK, 8PSK, 16PSK) or each FEC, as this doesn't really matter - It just increases the available bandwidth (and thus quality at 720p/1080p), and handles link-quality (FEC) The main item here is that S and S2 work with MPEG2 and H264.
+
+[^2]: The device tested was bought from Amazon on 11/20/2026, so it's the latest version. There are limits to it's resolution, and video format. Most cameras run MJPEG and devices convert it, however with how portsdown is done, H264 can't do this, It only supports YUYV or YUV420 - normal broadcast image formats. When the camera runs in YUYV mode, above 800x448 FPS drops off dramatically. At 720p it's 10FPS, and 1080p it's 5fps. Using MJPEG is not available at this time due to the old firmware/software. 
+
+[^3]: The Logitech C920x does not support normal 480p or 480i natively. This is 864x480 MJPEG cut down to 720p.
+
+[^4]: The Logitech C920x does not support normal 480p or 480i natively. This is re-sized 640x480 being handled by the avc2ts encoder, and can not be fixed due to footnote 2 above.
+
+[^5]: The Elgato Camlink 4K was tested with a 1080p input video from a laptop. The device supports 480p,720p,1080p and 2160p inputs (and some others).  It scales video on device, and Portsdown selects one of the first 3 video sizes. While 720p and 1080p work, they do drop some frames, fast motion may be blurry.
+
+Item of warning: Analog in (CompVid) does NOT support 720p, or 1080p. You can play with the 16:9 but it's a non-standard resolution and depending on how your repeater is setup (I.E Breaks back down to analog video vs all digital) it can cause squished video.
+
+# Why 
+
+
 # Installation for BATC Portsdown RPi 4 Version
 
 The preferred installation method only needs a Windows PC connected to the same (internet-connected) network as your Raspberry Pi.  Do not connect a keyboard or HDMI display directly to your Raspberry Pi.
