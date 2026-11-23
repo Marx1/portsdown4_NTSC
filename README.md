@@ -54,6 +54,12 @@ SRT → TANK → H.264/AAC TS → offline DVB-S2 modulation at 480p, 720p, and
 real OBS scene captures previously showed TS timing errors, and repeated
 recordings in new OBS profiles crashed the private FFmpeg path.
 
+TANK also serves a low-resolution H.264/AAC confidence return from a saved
+encoded TS at `http://192.168.3.33:9013/return.ts` for an OBS Media Source.
+MSE-88's system FFmpeg decoded it; OBS GUI playback is not yet verified.
+It is a looped file preview, not a live encoder or RF return. See the
+[setup and source-selection instructions](doc/mse88-obs-srt-to-tank.md#low-resolution-encoder-return-from-tank-to-obs).
+
 For a fresh 32-bit Trixie Pi, use the
 [isolated first-run and C920 MJPEG test](doc/trixie-32bit-first-run.md). This is
 not a full Portsdown installer.

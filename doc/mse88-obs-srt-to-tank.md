@@ -220,3 +220,41 @@ OBS profile crash diagnosis; visual/audio quality assessment on a receiver;
 and DATV-Express USB, firmware, PTT, and decoded RF tests with hardware.
 Neither the test sender nor the listener starts RF. TANK's rover service was
 left running.
+
+## Low-resolution encoder return from TANK to OBS
+
+TANK now has a separate `tank-encoder-return.service` on
+`http://192.168.3.33:9013/return.ts`. It loops a **saved, validated TS file**
+and re-encodes it as 426×240/15 fps H.264 with mono AAC at roughly 300 kbit/s.
+The source is currently `atem-live-verified-480-fec12.ts`, selected via
+`/home/leo/portsdown-srt/current-encoded.ts`. This is an encoded-output
+**confidence return**, not a live view of the current encoder, SRT arrival,
+DATV-Express board, or received RF signal. It does not start a transmitter.
+The service accepts one viewer at a time and reopens the listener after a
+viewer disconnects. It is independent of `rover-web.service`.
+
+On MSE-88 OBS, add a **Media Source** to a separate preview scene. Uncheck
+**Local File**, enter `http://192.168.3.33:9013/return.ts`, and, if OBS asks
+for an input format, use `mpegts`. Leave the existing output profile alone.
+Avoid placing the return in the scene being sent back to TANK unless a video
+feedback loop is intended. MSE-88's **system FFmpeg** successfully captured
+and decoded 5 seconds from the running service as H.264 426×240/15 fps plus
+AAC, around 331 kbit/s. A 20-second capture crossed the source file loop
+point and decoded, and a second client connection succeeded. The actual OBS
+Media Source GUI has **not** yet been checked.
+
+To preview another **already validated** TS file, point the symlink at it and
+restart the service, then refresh the OBS Media Source:
+
+```sh
+cd /home/leo/portsdown-srt
+ln -s /absolute/path/to/validated-output.ts current-encoded.next
+mv -Tf current-encoded.next current-encoded.ts
+sudo systemctl restart tank-encoder-return.service
+systemctl is-active tank-encoder-return.service
+```
+
+The source file must remain on TANK while it is served. The service is enabled
+for boot and its unit is in `scripts/tank-encoder-return.service`; the server
+is `scripts/tank_encoder_return.sh`. Change or stop only that service; the
+rover and SRT ingest run separately.
