@@ -1,7 +1,7 @@
 ![portsdown banner](/doc/img/Portsdown_4.jpg)
 # Portsdown Buster Build For RPi 4
 
-## Trixie development status (12 November 2026)
+## Trixie development status (22 November 2026)
 
 The `arm64-transmitter` branch contains work toward **two distinct targets**.
 Neither is an installable, RF-verified Trixie release. The installer and
@@ -43,6 +43,12 @@ Detailed status, build evidence, and acceptance gates:
 
 The MSE-88 OBS to TANK SRT/offline DVB-S2 test path is documented in
 [MSE-88 OBS SRT to TANK](doc/mse88-obs-srt-to-tank.md).
+It now has bounded TS-preparation profiles for **DVB-S 2222 ksym/s,
+MPEG-2/480p** and **DVB-S2 1000 ksym/s, H.264/480p, 720p, or 1080p**,
+with selectable FEC for capacity sizing. Synthetic 480p captures passed;
+real OBS scene captures still show TS timing errors, and repeated recordings
+in new OBS profiles crashed the private FFmpeg path. This is **not** a verified
+live transmitter or an unattended OBS workflow.
 
 For a fresh 32-bit Trixie Pi, use the
 [isolated first-run and C920 MJPEG test](doc/trixie-32bit-first-run.md). This is

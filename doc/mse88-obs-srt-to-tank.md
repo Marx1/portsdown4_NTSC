@@ -81,3 +81,79 @@ The test establishes the **OBS → SRT → TANK → TS → offline DVB-S2 I/Q**
 path for a short run. Longer-running stability, real audio/video quality,
 scene-specific capture sources, DATV-Express USB, firmware, PTT, and decoded
 RF output remain unverified. No RF transmission was enabled.
+
+## Target modes added 22 November 2026
+
+`scripts/srt_datv_ts_listener.py` is a separate bounded TS-preparation tool
+installed on TANK at `/home/leo/portsdown-srt/srt_datv_ts_listener.py`. It does
+not replace the earlier 333 ksym/s listener. The requested targets are:
+
+| Mode | Symbol rate | Video | Audio | FEC accepted for TS sizing |
+| --- | ---: | --- | --- | --- |
+| DVB-S QPSK | 2,222,000 sym/s | MPEG-2, 720×480 progressive, 16:9 display | MP2 | 1/2, 2/3, 3/4, 5/6, 7/8 |
+| DVB-S2 QPSK | 1,000,000 sym/s | H.264, 854×480, 1280×720, or 1920×1080 progressive | AAC | 1/4, 1/3, 2/5, 1/2, 3/5, 2/3, 3/4, 4/5, 5/6, 8/9, 9/10 |
+
+The FEC is **not in the TS file**: it must match the downstream modulator.
+For DVB-S, the tool computes QPSK transport capacity with 188/204 RS overhead.
+For DVB-S2, it asks the local `express_s2 --rate-only` backend for exact
+QPSK capacity. It sizes video and fixed-rate TS below capacity, then rejects
+captures whose measured TS rate exceeds capacity or whose muxer reports
+`dts < pcr`. Selecting a FEC does not by itself configure Portsdown's GUI or
+key RF. At 1 Msym/s, low FEC rates leave very little room for 720p/1080p;
+those selections can yield poor quality or fail the TS-timing check.
+
+On TANK, start one listener **before** clicking **Start Recording** in OBS:
+
+```sh
+python3 /home/leo/portsdown-srt/srt_datv_ts_listener.py \
+  --mode dvbs --fec 1/2 --resolution 480p --duration 60 \
+  --output /home/leo/portsdown-srt/dvbs-480-001.ts
+
+# Or, on a separate run, for DVB-S2:
+python3 /home/leo/portsdown-srt/srt_datv_ts_listener.py \
+  --mode dvbs2 --fec 1/2 --resolution 480p --duration 60 \
+  --output /home/leo/portsdown-srt/dvbs2-480-001.ts
+```
+
+Use a fresh output name on every run and stop OBS recording before the
+listener duration. `--resolution 720p` or `1080p` selects the other S2
+rasters; `--symbol-rate` can override the default. Offline DVB-S2 modulation
+with the **same** FEC and symbol rate can be checked without RF:
+
+```sh
+/home/leo/portsdown-express-s2-arm64/src/express_s2/express_s2 \
+  --input /home/leo/portsdown-srt/dvbs2-480-001.ts \
+  --symbol-rate 1000000 --fec 1/2
+```
+
+MSE-88 has separate `DATV SRT TANK 480`, `DATV SRT TANK 720`, and
+`DATV SRT TANK HD` OBS profiles and matching desktop launchers. Their ingest
+settings are 854×480/1.2 Mbit/s, 1280×720/2 Mbit/s, and native 1920×1080/
+4 Mbit/s respectively. The original `BAM 2023` profile was not changed.
+The profile was restored to `DATV SRT TANK` after probing; it is the earlier
+640×360/600 kbit/s profile. At the final check, a desktop-launched OBS instance
+was running with **system FFmpeg**, not the private SRT-enabled libraries; it
+was left untouched. Close OBS before using a DATV launcher, then verify the
+SRT-enabled FFmpeg libraries are loaded. The 480, 720, and HD profiles are
+opt-in experiments, not validated operational presets.
+
+### What was verified and what remains broken
+
+- TANK built the updated native `express_s2` backend. `--rate-only` returned
+  positive capacities for all eleven listed S2 FEC rates at 1 Msym/s; the
+  offline backend still needs USB/RF testing with a DATV-Express board.
+- Synthetic MSE-88 SRT → TANK TS tests passed for DVB-S MPEG-2/MP2 480p at
+  2222 ksym/s FEC 1/2 (1,911,250 bit/s, below 2,047,725 capacity) and DVB-S2
+  H.264/AAC 480p at 1000 ksym/s FEC 1/4 (final-revision file: 467,276 bit/s,
+  below 490,243 capacity). The files decoded. The S2 1/4 file also passed
+  offline I/Q modulation in an earlier probe of the same profile.
+- A real OBS scene reached TANK and decoded at S2 480p and 720p FEC 1/2, but
+  FFmpeg reported `dts < pcr`; those TS files are **not validated**. The
+  1080p synthetic probe also initially exceeded FEC 1/2 capacity. Later
+  1080p rate shaping stayed below capacity in a short synthetic run, but
+  source/encoder throughput and real-scene timing were not sustained.
+- Repeated recordings with the new 480/HD OBS profiles caused MSE-88 OBS to
+  segfault in the private FFmpeg `libavcodec.so.58` path. This needs debugging
+  before using those profiles unattended. The profile was reset to
+  `DATV SRT TANK`; a subsequent desktop OBS launch used system libraries.
+  TANK's rover service remained active. No RF transmission was attempted.

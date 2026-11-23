@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""Receive one OBS SRT call and write a bounded, rate-shaped DATV MPEG-TS file.
+
+This is TS preparation only. It never opens transmitter hardware or keys PTT.
+"""
+
+import argparse
+from pathlib import Path
+import subprocess
+import sys
+
+
+DVBS_FEC = {"1/2": (1, 2), "2/3": (2, 3), "3/4": (3, 4),
+            "5/6": (5, 6), "7/8": (7, 8)}
+DVBS2_FEC = ("1/4", "1/3", "2/5", "1/2", "3/5", "2/3",
+             "3/4", "4/5", "5/6", "8/9", "9/10")
+S2_BACKEND = Path("/home/leo/portsdown-express-s2-arm64/src/express_s2/express_s2")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--mode", required=True, choices=("dvbs", "dvbs2"))
+    parser.add_argument("--fec", required=True, help="FEC used by the matching modulator")
+    parser.add_argument("--resolution", default="480p", choices=("480p", "720p", "1080p"))
+    parser.add_argument("--symbol-rate", type=int, help="symbols/s; default 2222000 (S) or 1000000 (S2)")
+    parser.add_argument("--port", type=int, default=9000)
+    parser.add_argument("--duration", type=int, default=30)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--s2-backend", type=Path, default=S2_BACKEND)
+    args = parser.parse_args()
+
+    if args.mode == "dvbs" and args.resolution != "480p":
+        parser.error("DVB-S MPEG-2 profile is 480p only")
+    allowed = DVBS_FEC if args.mode == "dvbs" else DVBS2_FEC
+    if args.fec not in allowed:
+        parser.error(f"FEC for {args.mode} must be one of: {', '.join(allowed)}")
+    symbol_rate = args.symbol_rate or (2222000 if args.mode == "dvbs" else 1000000)
+    if not 100000 <= symbol_rate <= 10000000:
+        parser.error("symbol rate must be 100000-10000000 symbols/s")
+    if not 1024 <= args.port <= 65535 or not 1 <= args.duration <= 3600:
+        parser.error("port must be 1024-65535 and duration must be 1-3600 s")
+    if args.output.exists():
+        parser.error(f"output already exists: {args.output}")
+    if not args.output.parent.is_dir():
+        parser.error(f"output directory does not exist: {args.output.parent}")
+
+    if args.mode == "dvbs":
+        numerator, denominator = DVBS_FEC[args.fec]
+        # QPSK, 204-byte Reed-Solomon outer code carrying 188-byte TS packets.
+        capacity = symbol_rate * 2 * numerator * 188 // (denominator * 204)
+    else:
+        try:
+            result = subprocess.run(
+                [str(args.s2_backend), "--rate-only", "--symbol-rate", str(symbol_rate),
+                 "--fec", args.fec], check=True, capture_output=True, text=True)
+            capacity = int(result.stdout.strip())
+        except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+            parser.error(f"cannot get exact DVB-S2 TS capacity from backend: {exc}")
+
+    # Leave capacity margin; reject files with measured over-capacity rate
+    # or FFmpeg-reported PCR timing errors after the bounded capture.
+    mux_percent = 90 if args.mode == "dvbs" else 95
+    muxrate = capacity * mux_percent // 100 // 1000 * 1000
+    audio_rate = 128000 if args.mode == "dvbs" else 48000
+    video_fraction = 9 if args.mode == "dvbs" else 6
+    video_rate = (muxrate - audio_rate - 40000) * video_fraction // 10 // 1000 * 1000
+    if video_rate < 100000:
+        parser.error("selected FEC/symbol rate leaves insufficient room for video")
+
+    if args.mode == "dvbs":
+        # 720x480 with 16:9 display aspect ratio, conventional MPEG-2 SD raster.
+        video_filter = "fps=24000/1001,scale=720:480:force_original_aspect_ratio=decrease,pad=720:480:(ow-iw)/2:(oh-ih)/2,setsar=32/27,format=yuv420p"
+        video_encoder = ["-c:v", "mpeg2video", "-bf", "0", "-g", "24"]
+        video_maxrate = video_rate * 6 // 5
+        audio_encoder = ["-c:a", "mp2", "-b:a", str(audio_rate), "-ac", "2", "-ar", "48000"]
+    else:
+        width, height = {"480p": (854, 480), "720p": (1280, 720),
+                         "1080p": (1920, 1080)}[args.resolution]
+        frame_rate = "15" if args.resolution == "1080p" or (args.resolution == "720p" and muxrate < 1200000) else "24000/1001"
+        video_filter = (f"fps={frame_rate},scale={width}:{height}:force_original_aspect_ratio=decrease,"
+                        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p")
+        video_encoder = ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
+                         "-profile:v", "baseline", "-bf", "0", "-g", "24"]
+        video_maxrate = video_rate
+        audio_encoder = ["-c:a", "aac", "-b:a", str(audio_rate), "-ac", "1", "-ar", "48000"]
+
+    url = f"srt://0.0.0.0:{args.port}?mode=listener&latency=200000"
+    command = ["ffmpeg", "-hide_banner", "-loglevel", "info", "-nostats", "-nostdin", "-n",
+               "-i", url, "-t", str(args.duration), "-map", "0:v:0", "-map", "0:a:0?",
+               "-vf", video_filter, *video_encoder, "-b:v", str(video_rate),
+               "-maxrate:v", str(video_maxrate), "-bufsize:v", str(video_maxrate * 2),
+               *audio_encoder, "-mpegts_pmt_start_pid", "4095", "-streamid", "0:4096",
+               "-muxrate", str(muxrate), "-f", "mpegts", str(args.output)]
+    print(f"{args.mode.upper()} QPSK {symbol_rate} sym/s FEC {args.fec}: "
+          f"capacity={capacity}, TS muxrate={muxrate}, video={video_rate} bit/s; "
+          f"output={args.resolution}", flush=True)
+    if args.mode == "dvbs2" and args.resolution == "1080p" and video_rate < 1500000:
+        print("Warning: 1080p at this bitrate will be low quality; real-time Pi encoding is unverified.",
+              file=sys.stderr, flush=True)
+    invalid_ts = False
+    with subprocess.Popen(command, stderr=subprocess.PIPE, text=True) as process:
+        for line in process.stderr:
+            print(line, file=sys.stderr, end="", flush=True)
+            if "dts < pcr" in line:
+                invalid_ts = True
+        result = process.wait()
+    if result:
+        return result
+    try:
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=bit_rate",
+             "-of", "default=nw=1:nk=1", str(args.output)],
+            check=True, capture_output=True, text=True)
+        actual_rate = int(probe.stdout.strip())
+    except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+        print(f"Unable to verify TS bitrate: {exc}", file=sys.stderr)
+        return 1
+    print(f"Measured TS bitrate={actual_rate} bit/s; modulator capacity={capacity} bit/s")
+    if actual_rate > capacity:
+        print("TS exceeds selected FEC capacity; do not feed it to the modulator.", file=sys.stderr)
+        return 1
+    if invalid_ts:
+        print("FFmpeg reported dts < pcr; TS timing is invalid for this profile.", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

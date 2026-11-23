@@ -23,9 +23,12 @@ static void request_stop(int)
 static void usage(const char *program)
 {
     std::fprintf(stderr,
-        "Usage: %s [--input TS_FILE] [--symbol-rate HZ] [--max-packets N] "
+        "Usage: %s [--input TS_FILE] [--symbol-rate HZ] [--fec RATE] "
+        "[--rate-only] [--max-packets N] "
         "[--tx --frequency HZ]\n"
         "Default: offline QPSK 1/2 DVB-S2 probe with 1000 null packets.\n"
+        "FEC: 1/4, 1/3, 2/5, 1/2, 3/5, 2/3, 3/4, 4/5, 5/6, 8/9, 9/10.\n"
+        "--rate-only reports the QPSK TS capacity without processing packets.\n"
         "--tx requires a TS input and RF frequency; output is held at maximum "
         "attenuation.\n", program);
 }
@@ -54,11 +57,31 @@ static bool parse_frequency(const char *text, uint64_t *value)
     return true;
 }
 
+static bool parse_fec(const char *text, int *value)
+{
+    struct Rate { const char *name; int code; };
+    static const Rate rates[] = {
+        {"1/4", CR_1_4}, {"1/3", CR_1_3}, {"2/5", CR_2_5},
+        {"1/2", CR_1_2}, {"3/5", CR_3_5}, {"2/3", CR_2_3},
+        {"3/4", CR_3_4}, {"4/5", CR_4_5}, {"5/6", CR_5_6},
+        {"8/9", CR_8_9}, {"9/10", CR_9_10},
+    };
+    for (const auto &rate : rates) {
+        if (std::strcmp(text, rate.name) == 0) {
+            *value = rate.code;
+            return true;
+        }
+    }
+    return false;
+}
+
 int main(int argc, char **argv)
 {
     static const option options[] = {
         {"input", required_argument, nullptr, 'i'},
         {"symbol-rate", required_argument, nullptr, 's'},
+        {"fec", required_argument, nullptr, 'c'},
+        {"rate-only", no_argument, nullptr, 'r'},
         {"frequency", required_argument, nullptr, 'f'},
         {"max-packets", required_argument, nullptr, 'n'},
         {"tx", no_argument, nullptr, 't'},
@@ -67,14 +90,18 @@ int main(int argc, char **argv)
     };
     const char *input_path = nullptr;
     int symbol_rate = 333000;
+    int fec = CR_1_2;
     uint64_t frequency = 0;
     int max_packets = 0;
     bool transmit = false;
+    bool rate_only = false;
     while (true) {
-        const int opt = getopt_long(argc, argv, "i:s:f:n:th", options, nullptr);
+        const int opt = getopt_long(argc, argv, "i:s:c:f:n:rth", options, nullptr);
         if (opt == -1) break;
         switch (opt) {
         case 'i': input_path = optarg; break;
+        case 'c': if (!parse_fec(optarg, &fec)) { usage(argv[0]); return 2; } break;
+        case 'r': rate_only = true; break;
         case 's':
             if (!parse_positive_int(optarg, &symbol_rate) || symbol_rate > 10000000) {
                 usage(argv[0]); return 2;
@@ -92,7 +119,7 @@ int main(int argc, char **argv)
         }
     }
     if (optind != argc || (transmit && (!input_path || !frequency)) ||
-        (!transmit && frequency)) {
+        (!transmit && frequency) || (rate_only && (transmit || input_path || max_packets))) {
         usage(argv[0]);
         return 2;
     }
@@ -109,12 +136,16 @@ int main(int argc, char **argv)
 
     // The raw-16 board path, like G4GUO's Windows S2 path, accepts one
     // physical-layer complex symbol per input symbol. No rate change here.
-    const int net_bitrate = Dvbs2Init(symbol_rate, CR_1_2, M_QPSK,
+    const int net_bitrate = Dvbs2Init(symbol_rate, fec, M_QPSK,
                                      0, RO_0_35, 1, false);
     if (net_bitrate <= 0) {
         std::fprintf(stderr, "DVB-S2 modulator initialization failed\n");
         if (input && input != stdin) std::fclose(input);
         return 1;
+    }
+    if (rate_only) {
+        std::printf("%d\n", net_bitrate);
+        return 0;
     }
 
     if (transmit) {

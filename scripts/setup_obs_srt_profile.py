@@ -16,12 +16,27 @@ def main():
     parser.add_argument("--source-profile", required=True, help="existing OBS profile directory name")
     parser.add_argument("--profile-name", required=True, help="new profile directory and display name")
     parser.add_argument("--srt-url", required=True, help="SRT caller URL for the receiver")
+    parser.add_argument("--video-bitrate", type=int, default=600,
+                        help="OBS SRT ingest video bitrate in kbit/s (default: 600)")
+    parser.add_argument("--audio-bitrate", type=int, default=64,
+                        help="OBS SRT ingest audio bitrate in kbit/s (default: 64)")
+    parser.add_argument("--rescale", default="640x360",
+                        help="output rescale WxH, or 'none' to use OBS canvas/output resolution")
     args = parser.parse_args()
 
     if not args.srt_url.startswith("srt://") or "mode=caller" not in args.srt_url:
         parser.error("--srt-url must be an srt:// caller URL")
     if Path(args.profile_name).name != args.profile_name:
         parser.error("--profile-name must be a single directory name")
+    if not 100 <= args.video_bitrate <= 50000 or not 16 <= args.audio_bitrate <= 320:
+        parser.error("bitrate out of range")
+    if args.rescale != "none":
+        try:
+            width, height = map(int, args.rescale.split("x"))
+            if not 160 <= width <= 4096 or not 120 <= height <= 2160:
+                raise ValueError
+        except ValueError:
+            parser.error("--rescale must be WxH or none")
 
     profiles = Path.home() / ".config/obs-studio/basic/profiles"
     source = profiles / args.source_profile
@@ -52,13 +67,13 @@ def main():
         "FFFormatMimeType": "video/MP2T",
         "FFVEncoder": "libx264",
         "FFVEncoderId": "27",  # AV_CODEC_ID_H264
-        "FFVBitrate": "600",  # OBS uses kbit/s here
+        "FFVBitrate": str(args.video_bitrate),  # OBS uses kbit/s here
         "FFVGOPSize": "48",
-        "FFRescale": "true",
-        "FFRescaleRes": "640x360",
+        "FFRescale": "false" if args.rescale == "none" else "true",
+        "FFRescaleRes": "" if args.rescale == "none" else args.rescale,
         "FFAEncoder": "aac",
         "FFAEncoderId": "86018",  # AV_CODEC_ID_AAC
-        "FFABitrate": "64",  # kbit/s
+        "FFABitrate": str(args.audio_bitrate),  # kbit/s
         "FFAudioMixes": "1",
     })
 
