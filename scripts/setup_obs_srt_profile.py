@@ -64,7 +64,8 @@ def main():
 
     temp = target / "basic.ini.tmp"
     with temp.open("w") as handle:
-        config.write(handle)
+        # OBS's own config parser expects Key=Value (no spaces around '=').
+        config.write(handle, space_around_delimiters=False)
     temp.replace(target / "basic.ini")
 
     # The FFmpeg output does not use an RTMP service. Blank the inherited
