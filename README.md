@@ -17,11 +17,12 @@ The current GUI and Express S2 backend also built from a **fresh clone** of
 the published branch on TANK; its dry-run SRT gate/disconnect check passed.
 That is a clean-checkout software check, **not a fresh Pi OS installation**.
 
-The GUI's Video Source menu already includes **Pi Cam** for supported 480p
-and 720p configurations. That selection still uses the legacy camera transmit
-path, which has not been ported to Trixie. TANK's attached IMX708 supplied
-live frames to an offline MPEG-TS test via the running rover's snapshot API;
-this does **not** verify Pi Cam touchscreen transmission or RF.
+The GUI's Video Source menu includes **Pi Cam** for 480p and 720p. With
+`h264backend=ffmpeg`, its H.264 and MPEG-2 encoder paths now use `rpicam-vid`
+and system FFmpeg instead of the Buster camera stack. A TANK IMX708-derived
+recording and a simulated raw camera pipe produced decodable TS offline.
+TANK's rover owns the actual camera, so direct `rpicam-vid` capture,
+touchscreen transmission, and RF remain unverified.
 
 **DVB-S2 distinction:** the existing Portsdown `DATVEXPRESS` GUI mode and
 `express_server` are **DVB-S only**. The new **Express S2** GUI output is a
@@ -34,7 +35,8 @@ and uses raw-16 USB, but has not been tested with a board. Neither 32-bit nor
 
 1. **32-bit Trixie:** test a spare Pi 4 image with the original display,
    capture device, and intended RF hardware; finish the modern installer,
-   GUI/input path, remaining video sources, and install/update regression.
+   GUI/input path, direct Pi Cam and remaining video sources, and
+   install/update regression.
 2. **64-bit transmitter:** validate the Pi 4 DMA and RF path, port remaining
    ARM32-only components, and test the intended output devices. A native
    build and offline modulation do not establish a working transmitter.

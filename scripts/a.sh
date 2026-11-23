@@ -647,6 +647,87 @@ echo "ModeINPUT = "$MODE_INPUT
 echo "LIME_GAINF = "$LIME_GAINF
 echo
 
+# The Trixie FFmpeg backend uses rpicam-vid/libcamera for Pi Cam. The old
+# CAMH264/avc2ts and CAMMPEG-2/V4L2 branches below remain for Buster.
+if [ "$H264_BACKEND" == "ffmpeg" ]; then
+  case "$MODE_INPUT" in
+    CAMH264|CAMMPEG-2|CAM16MPEG-2|CAMHDMPEG-2)
+      if ! command -v rpicam-vid >/dev/null 2>&1; then
+        echo "Pi Cam needs rpicam-vid on the Trixie capture backend" >&2
+        exit 2
+      fi
+      # Check that the camera can actually be acquired before any RF output
+      # process or DATV-Express PTT is started.
+      if ! rpicam-vid --timeout 1000ms --nopreview --codec yuv420 \
+          --width "$VIDEO_WIDTH" --height "$VIDEO_HEIGHT" --framerate 30 \
+          --output /dev/null >/dev/null 2>&1; then
+        echo "Pi Cam is unavailable or already in use; TX not started" >&2
+        exit 2
+      fi
+      if [ "$MODULATION" == "DVB-T" ] || [ "$MODULATION" == "DVB-T2" ]; then
+        echo "Trixie Pi Cam DVB-T/T2 output is not integrated yet" >&2
+        exit 2
+      fi
+      case "$MODE_OUTPUT" in
+        IP)
+          PICAM_TS_OUTPUT="udp://$UDPOUTADDR:$UDPOUTPORT?pkt_size=1316"
+          ;;
+        COMPVID)
+          PICAM_TS_OUTPUT=/dev/null
+          ;;
+        DATVEXPRESS)
+          PICAM_TS_OUTPUT=videots
+          echo "set ptt tx" >> /tmp/expctrl
+          netcat -u -4 127.0.0.1 1314 < videots &
+          ;;
+        LIMEMINI|LIMEUSB|LIMEDVB)
+          PICAM_TS_OUTPUT=videots
+          "$PATHRPI/limesdr_dvb" -i videots -s "$SYMBOLRATE" -f "$FECNUM/$FECDEN" \
+            -r "$UPSAMPLE" -m "$MODTYPE" -c "$CONSTLN" $PILOTS $FRAMES \
+            -t "${FREQ_OUTPUT}e6" -g "$LIME_GAINF" -q "$CAL" $CUSTOM_FPGA \
+            -D "$DIGITAL_GAIN" -e "$BAND_GPIO" $LIMETYPE &
+          ;;
+        MUNTJAC)
+          PICAM_TS_OUTPUT=videots
+          "$PATHRPI/muntjacsdr_dvb" -i videots -s "$SYMBOLRATE" -f "$FECNUM/$FECDEN" \
+            -r "$UPSAMPLE" -m "$MODTYPE" -c "$CONSTLN" $PILOTS $FRAMES \
+            -t "${FREQ_OUTPUT}e6" -g "$MUNTJAC_GAINF" -e "$BAND_GPIO" &
+          ;;
+        IQ|QPSKRF|DIGITHIN|DTX1)
+          PICAM_TS_OUTPUT=videots
+          sudo "$PATHRPI/rpidatv" -i videots -s "$SYMBOLRATE_K" -c "$FECNUM/$FECDEN" \
+            -f "$FREQUENCY_OUT" -p "$GAIN" -m "$MODE" -x "$PIN_I" -y "$PIN_Q" &
+          ;;
+        *)
+          echo "Trixie Pi Cam output $MODE_OUTPUT is not integrated yet" >&2
+          exit 2
+          ;;
+      esac
+
+      if [ "$MODE_INPUT" == "CAMH264" ]; then PICAM_CODEC=h264; else PICAM_CODEC=mpeg2; fi
+      PICAM_ARGS=(--source rpicam --codec "$PICAM_CODEC" --output "$PICAM_TS_OUTPUT"
+        --size "${VIDEO_WIDTH}x${VIDEO_HEIGHT}" --video-bitrate "$BITRATE_VIDEO"
+        --muxrate "$BITRATE_TS" --pmt-pid "$PIDPMT" --video-pid "$PIDVIDEO"
+        --audio-pid "$PIDAUDIO" --service-id "$SERVICEID" --service-name "$CALL"
+        --video-encoder "$H264_ENCODER")
+      if [ "$PICAM" != normal ]; then PICAM_ARGS+=(--rotation 180); fi
+      if [ "$AUDIO_CARD" != 0 ]; then
+        PICAM_ARGS+=(--audio-device "plughw:$AUDIO_CARD_NUMBER,0"
+          --audio-channels "$AUDIO_CHANNELS" --audio-rate "$AUDIO_SAMPLE")
+      elif [ "$AUDIO_CHANNELS" == 1 ]; then
+        PICAM_ARGS+=(--audio-device testtone)
+      fi
+      if [ "$PICAM_CODEC" == h264 ]; then
+        PICAM_ARGS+=(--audio-bitrate 24000)
+      else
+        PICAM_ARGS+=(--audio-bitrate 64000)
+      fi
+      "$PATHSCRIPT/picam_ts_ffmpeg.sh" "${PICAM_ARGS[@]}" &
+      exit 0
+      ;;
+  esac
+fi
+
 case "$MODE_INPUT" in
 
   #============================================ H264 PI CAM INPUT MODE =========================================================
