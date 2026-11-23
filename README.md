@@ -47,12 +47,14 @@ It now has bounded TS-preparation profiles for **DVB-S 2222 ksym/s,
 MPEG-2/480p** and **DVB-S2 1000 ksym/s, H.264/480p, 720p, or 1080p**,
 with selectable FEC for capacity sizing. A repeatable
 [ATEM-like SRT sender](scripts/atem_srt_emulator.sh) and
-[bounded TANK listener](scripts/srt_datv_ts_listener.py) now pass MSE-88 →
-SRT → TANK → H.264/AAC TS → offline DVB-S2 modulation at 480p, 720p, and
-1080p, 1 Msym/s FEC 1/2. The source is captured before transcoding; this is
-**not live forwarding or RF transmission**. Actual ATEM output is untested,
-real OBS scene captures previously showed TS timing errors, and repeated
-recordings in new OBS profiles crashed the private FFmpeg path.
+[bounded TANK listener](scripts/srt_datv_ts_listener.py) pass MSE-88 →
+SRT → TANK → DVB-S MPEG-2/480p or DVB-S2 H.264/480p, 720p, and 1080p TS.
+MSE-88 now has three tested native OBS SRT Streaming profiles; the older
+crash-prone Custom FFmpeg Recording profiles were archived. Actual OBS
+captures passed full TS decode and offline DVB-S2 modulation at all three
+rasters, 1 Msym/s FEC 1/2. The DVB-S 480p mux timing was corrected and its
+actual OBS capture now passes. These are bounded software tests, **not RF
+transmission**. Actual ATEM input and board/RF output remain untested.
 
 TANK also serves a low-resolution H.264/AAC confidence return at
 `http://192.168.3.33:9013/return.ts` for an OBS Media Source. It shows

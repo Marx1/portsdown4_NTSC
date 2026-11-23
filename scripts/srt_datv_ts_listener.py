@@ -85,11 +85,11 @@ def main():
 
     # Leave capacity margin; reject files with measured over-capacity rate
     # or FFmpeg-reported PCR timing errors after the bounded capture.
-    mux_percent = 90 if args.mode == "dvbs" else 95
+    mux_percent = 95
     muxrate = capacity * mux_percent // 100 // 1000 * 1000
     audio_rate = 128000 if args.mode == "dvbs" else 48000
-    video_fraction = 9 if args.mode == "dvbs" else 55
-    video_divisor = 10 if args.mode == "dvbs" else 100
+    video_fraction = 85 if args.mode == "dvbs" else 55
+    video_divisor = 100
     video_rate = (muxrate - audio_rate - 40000) * video_fraction // video_divisor // 1000 * 1000
     if video_rate < 100000:
         parser.error("selected FEC/symbol rate leaves insufficient room for video")
@@ -98,7 +98,9 @@ def main():
         # 720x480 with 16:9 display aspect ratio, conventional MPEG-2 SD raster.
         video_filter = "fps=24000/1001,scale=720:480:force_original_aspect_ratio=decrease,pad=720:480:(ow-iw)/2:(oh-ih)/2,setsar=32/27,format=yuv420p"
         video_encoder = ["-c:v", "mpeg2video", "-bf", "0", "-g", "24"]
-        video_maxrate = video_rate * 6 // 5
+        # Keep MPEG-2 VBV peaks well below the fixed TS mux rate. The old
+        # 120% peaks could outrun it on real OBS scenes (dts < pcr).
+        video_maxrate = video_rate + 100000
         audio_encoder = ["-c:a", "mp2", "-b:a", str(audio_rate), "-ac", "2", "-ar", "48000"]
     else:
         width, height = {"480p": (854, 480), "720p": (1280, 720),
@@ -157,7 +159,7 @@ def main():
     command += [
                "-vf", video_filter, *video_encoder, "-b:v", str(video_rate),
                "-maxrate:v", str(video_maxrate), "-bufsize:v",
-               str(video_maxrate * 2 if args.mode == "dvbs" else video_maxrate // 2)]
+               str(video_maxrate // 2)]
     if has_audio:
         command.extend(audio_encoder)
     command += ["-mpegts_pmt_start_pid", "4095", "-streamid", "0:4096",
