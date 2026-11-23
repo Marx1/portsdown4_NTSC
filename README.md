@@ -8,24 +8,24 @@ This version is based on Raspberry Pi OS Buster Lite and is only compatible with
 Our thanks to Evariste, Heather, Charles and all the other contributors to this community project.  All code within the project is GPL.
 
 # Known working Input, output and Encoding settings
-| Video Source   | Video Format | Modulator Hardware | Modulation[^1] | Encoder | Text overlay supported? | Supported FPS | Quality Scale | Works with W6CX |
-| :------------: | :----------: | :----------------: | :----------: | :-----: | :---------------------: | :-----------: | :-----------: | :-----------: |
-| Comp Vid       | 4:3 (480p)   | Lime Mini          | DVB-S        | MPEG-2   | Yes                     | 29.97         | Average      | Yes, Both inputs |
-| Comp Vid       | 4:3 (480p)   | Lime Mini          | DVB-S2       | MPEG-2   | Yes                     | 30            | Average      | Yes, Both inputs |
-| Comp Vid       | 4:3 (480p)   | Lime Mini          | DVB-S2       | H264    | No                      | 30            | Average      | Yes, Both inputs |
-| Logitech C920X[^2] | 4:3 (480p)[^3] | Lime Mini          | DVB-S        | MPEG-2   | Yes                     | 30            | Good         | Yes, Both inputs |
-| Logitech C920X[^2] | 4:3 (480p)[^3] | Lime Mini          | DVB-S2       | MPEG-2   | Yes                     | 30            | Good         | Yes, Both inputs |
-| Logitech C920X[^2] | 4:3 (D1)[^4]   | Lime Mini          | DVB-S2       | H264    | No                      | 30            |   Good        | Yes, Both inputs |
-| Logitech C920X[^2] | 720P           | Lime Mini          | DVB-S        | MPEG-2   | Yes                      | 10            | Good, Low FPS | NO |
-| Elgato Camlink 4K [^5] | 4:3 (480p)       | Lime Mini          | DVB-S       | MPEG-2   | No                      | 30            | Good, Aspect ratio compressed | Yes, Both inputs | 
-| Elgato Camlink 4K [^5] | 720P      | Lime Mini          | DVB-S       | MPEG-2    | No                      | 30            | Good to Great, Limited by synbol rate  | Not recomended, 1273 only |
-| Elgato Camlink 4K [^5] | 1080P       | Lime Mini          | DVB-S       | MPEG-2   | No                      | 30            | Good to Great, Limited by synbol rate | Not recomended, 1273 only |
-| Elgato Camlink 4K [^5] | 4:3 (480p)       | Lime Mini          | DVB-S2      | MPEG-2    | No                      | 30            | Good, Aspect ratio compressed |  Yes, 1273 only |
-| Elgato Camlink 4K [^5] | 720P       | Lime Mini          | DVB-S2       | MPEG-2    | No                      | 30            | Good, Limited by synbol rate  | Not recomended, 1273 only |
-| Elgato Camlink 4K [^5] | 1080P       | Lime Mini          | DVB-S2       | H264  | No                      | 30            | Average, Limited by synbol rate |Not recomended, 1273 only |
-| Elgato Camlink 4K [^5] | 4:3 (480p)       | Lime Mini          | DVB-S2      | H264   | No                      | 30            | Good, Aspect ratio compressed | Yes, 1273 only |
-| Elgato Camlink 4K [^5] | 720P       | Lime Mini          | DVB-S2       | H264   | No                      | 30            | Great | Yes, 1273 only |
-| Elgato Camlink 4K [^5] | 1080P       | Lime Mini          | DVB-S2       | H264  | No                      | 30            | Great to Amazing, Depends on synbol rate | Yes, 1273 only |
+| Video Source| Video Format | TX Hardware | Modulation[^1] | Encoder | Txt overlay? | Supported FPS | Quality Scale | Works with W6CX |
+| :---------: | :----------: | :---------: | :----------: | :-----: | :------------: | :-----------: | :--------: | :--------: |
+| Comp Vid | 4:3 (480p)   | Lime Mini | DVB-S  | MPEG-2   | Yes      | 29.97| Average| Yes, Both inputs |
+| Comp Vid | 4:3 (480p)   | Lime Mini | DVB-S2 | MPEG-2   | Yes      | 30   | Average| Yes, Both inputs |
+| Comp Vid | 4:3 (480p)   | Lime Mini | DVB-S2 | H264    | No       | 30   | Average| Yes, Both inputs |
+| Logitech C920X[^2] | 4:3 (480p)[^3] | Lime Mini | DVB-S  | MPEG-2   | Yes      | 30   | Good| Yes, Both inputs |
+| Logitech C920X[^2] | 4:3 (480p)[^3] | Lime Mini | DVB-S2 | MPEG-2   | Yes      | 30   | Good| Yes, Both inputs |
+| Logitech C920X[^2] | 4:3 (D1)[^4]   | Lime Mini | DVB-S2 | H264    | No       | 30   |   Good  | Yes, Both inputs |
+| Logitech C920X[^2] | 720P  | Lime Mini | DVB-S  | MPEG-2   | Yes       | 10   | Good, Low FPS | NO |
+| Elgato Camlink 4K [^5] | 4:3 (480p) | Lime Mini | DVB-S | MPEG-2   | No       | 30   | Good, Aspect ratio compressed | Yes, Both inputs | 
+| Elgato Camlink 4K [^5] | 720P| Lime Mini | DVB-S | MPEG-2    | No       | 30   | Good to Great, Limited by synbol rate  | Not recomended, 1273 only |
+| Elgato Camlink 4K [^5] | 1080P | Lime Mini | DVB-S | MPEG-2   | No       | 30   | Good to Great, Limited by synbol rate | Not recomended, 1273 only |
+| Elgato Camlink 4K [^5] | 4:3 (480p) | Lime Mini | DVB-S2| MPEG-2    | No       | 30   | Good, Aspect ratio compressed |  Yes, 1273 only |
+| Elgato Camlink 4K [^5] | 720P | Lime Mini | DVB-S2 | MPEG-2    | No       | 30   | Good, Limited by synbol rate  | Not recomended, 1273 only |
+| Elgato Camlink 4K [^5] | 1080P | Lime Mini | DVB-S2 | H264  | No       | 30   | Average, Limited by synbol rate |Not recomended, 1273 only |
+| Elgato Camlink 4K [^5] | 4:3 (480p) | Lime Mini | DVB-S2| H264   | No       | 30   | Good, Aspect ratio compressed | Yes, 1273 only |
+| Elgato Camlink 4K [^5] | 720P | Lime Mini | DVB-S2 | H264   | No       | 30   | Great | Yes, 1273 only |
+| Elgato Camlink 4K [^5] | 1080P | Lime Mini | DVB-S2 | H264  | No       | 30   | Great to Amazing, Depends on synbol rate | Yes, 1273 only |
 
 
 [^1]: For Modulation, We've only tested DVB-S vs S2, not each subtype of S2 (IE QPSK, 8PSK, 16PSK) or each FEC, as this doesn't really matter - It just increases the available bandwidth (and thus quality at 720p/1080p), and handles link-quality (FEC) The main item here is that S and S2 work with MPEG2 and H264.
