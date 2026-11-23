@@ -4,6 +4,16 @@ This path prepares bounded MPEG-TS files and checks DVB-S2 modulation
 **offline**. It does not control DATV-Express USB, PTT, or RF. FEC and symbol
 rate are selected on TANK, not in an OBS profile.
 
+The Portsdown touchscreen source menu in this branch now has an **SRT** entry
+in the formerly unused second-row slot. Selecting it makes the main control
+display read **Source: SRT** and persists `modeinput=SRT` across restarts and
+presets. This is a status/selection for the separate TANK SRT receive and
+preview path below; it does **not** start that listener or transmit. Pressing
+TX with SRT selected displays a receive-only message instead of keying PTT.
+The legacy `a.sh` script also rejects `modeinput=SRT` before stopping any
+processes or starting an RF output. Touchscreen behavior still needs testing
+on a Portsdown system with a display; this host has no GUI build dependencies.
+
 ## OBS profiles on MSE-88
 
 MSE-88 runs OBS 29.1.3. Its system FFmpeg lacks SRT, so the DATV launchers

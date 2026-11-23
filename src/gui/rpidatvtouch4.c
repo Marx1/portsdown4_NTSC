@@ -205,7 +205,7 @@ char CurrentFrames[7] = "long";
 //char CurrentModeInput[255] = "DESKTOP";
 char TabEncoding[7][15] = {"MPEG-2", "H264", "H265", "IPTS in", "TS File", "IPTS in H264", "IPTS in H265"};
 char CurrentEncoding[255] = "H264";
-char TabSource[10][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "PiScreen", "Contest", "Webcam", "C920", "HDMI", "PC"};
+char TabSource[11][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "PiScreen", "Contest", "Webcam", "C920", "HDMI", "PC", "SRT"};
 char CurrentSource[15] = "PiScreen";
 char TabFormat[4][15] = {"4:3", "16:9", "720p", "1080p"};
 char CurrentFormat[15] = "4:3";
@@ -225,7 +225,7 @@ char CurrentPiCamOrientation[15] = "normal";
 // "IPTSIN","ANALOGMPEG-2", "CARDMPEG-2", "CAMHDMPEG-2", "DESKTOP", "FILETS"
 //  NOT "C920"
 // "JHDMI", "JCAM", "JPC", "JCARD", "JWEBCAM", "HDMI"
-// "IPTSIN264", "IPTSIN265"
+// "IPTSIN264", "IPTSIN265", "SRT" (receive-only preview for now)
 
 // Composite Video Output variables
 char TabVidSource[8][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "Snap", "Contest", "Webcam", "Movie"};
@@ -2303,6 +2303,13 @@ void ReadModeInput(char coding[256], char vsource[256])
     strcpy(vsource, "TS File");
     strcpy(CurrentFormat, "4:3");
     strcpy(CurrentEncoding, "TS File");
+  }
+  else if (strcmp(ModeInput, "SRT") == 0)
+  {
+    strcpy(coding, "H264");
+    strcpy(vsource, "SRT");
+    strcpy(CurrentEncoding, "H264");
+    strcpy(CurrentSource, TabSource[10]);
   }
   else if (strcmp(ModeInput, "IPTSIN") == 0)
   {
@@ -8620,6 +8627,13 @@ void ApplyTXConfig()
   {
     strcpy(ModeInput, "CARRIER");
   }
+  else if (strcmp(CurrentSource, "SRT") == 0)
+  {
+    // Preserve the selected source; SRT is currently a receive-only preview.
+    strcpy(ModeInput, "SRT");
+    strcpy(CurrentEncoding, "H264");
+    SetConfigParam(PATH_PCONFIG, "encoding", CurrentEncoding);
+  }
   else if (((strcmp(CurrentModeOP, "LIMEMINI") == 0) || (strcmp(CurrentModeOP, "LIMEDVB") == 0)
          || (strcmp(CurrentModeOP, "LIMEUSB") == 0)) && (strcmp(CurrentSource, "HDMI") == 0))
   {
@@ -10630,7 +10644,14 @@ void SelectSource(int NoButton)  // Video Source
   {
     NoButton = NoButton + 10;
   }
-  strcpy(CurrentSource, TabSource[NoButton - 5]);
+  if (NoButton == 7) // SRT uses the previously vacant TCAnim button
+  {
+    strcpy(CurrentSource, TabSource[10]);
+  }
+  else
+  {
+    strcpy(CurrentSource, TabSource[NoButton - 5]);
+  }
   printf("Current Source before ApplyTXConfig in SelectSource is %s\n",  CurrentSource);
 
   // Bodge for HDMI input from Elgato
@@ -21016,7 +21037,12 @@ void waituntil(int w,int h)
           UpdateWindow();
           break;
         case 20:                       // TX PTT
-          if (strcmp(CurrentModeOP, "COMPVID") == 0) // Comp Vid OP
+          if (strcmp(ModeInput, "SRT") == 0)
+          {
+            MsgBox2("SRT is an external receive/preview source", "RF transmit is not yet connected");
+            wait_touch();
+          }
+          else if (strcmp(CurrentModeOP, "COMPVID") == 0) // Comp Vid OP
           {
             printf("MENU 4 \n");        // Source
             CurrentMenu=4;
@@ -24430,7 +24456,10 @@ void waituntil(int w,int h)
           SelectSource(i);
           printf("CompVid\n");
           break;
-        // case 7:                               // TCAnim No tcanim on RPi 4
+        case 7:                               // SRT receive-only source
+          SelectSource(i);
+          printf("SRT\n");
+          break;
         case 8:                               // TestCard
           SelectSource(i);
           printf("TestCard\n");
@@ -30189,10 +30218,10 @@ void Define_Menu45()
   AddButtonStatus(button, TabSource[1], &Green);
   AddButtonStatus(button, TabSource[1], &Grey);
 
-  // button = CreateButton(45, 7);                     // TCAnim not avilable on RPi 4
-  // AddButtonStatus(button, TabSource[2], &Blue);
-  // AddButtonStatus(button, TabSource[2], &Green);
-  // AddButtonStatus(button, TabSource[2], &Grey);
+  button = CreateButton(45, 7);                     // SRT receive-only source
+  AddButtonStatus(button, TabSource[10], &Blue);
+  AddButtonStatus(button, TabSource[10], &Green);
+  AddButtonStatus(button, TabSource[10], &Grey);
 
   button = CreateButton(45, 8);                     // TestCard
   AddButtonStatus(button, TabSource[3], &Blue);
@@ -30220,11 +30249,6 @@ void Start_Highlights_Menu45()
   {
     SelectInGroupOnMenu(45, 5, 9, 6, 1);
     SelectInGroupOnMenu(45, 0, 3, 6, 1);
-  }
-  if(strcmp(CurrentSource, TabSource[2]) == 0)
-  {
-    SelectInGroupOnMenu(45, 5, 9, 7, 1);
-    SelectInGroupOnMenu(45, 0, 3, 7, 1);
   }
   if(strcmp(CurrentSource, TabSource[3]) == 0)
   {
@@ -30255,6 +30279,11 @@ void Start_Highlights_Menu45()
   {
     SelectInGroupOnMenu(45, 5, 9, 3, 1);
     SelectInGroupOnMenu(45, 0, 3, 3, 1);
+  }
+  if(strcmp(CurrentSource, TabSource[10]) == 0)
+  {
+    SelectInGroupOnMenu(45, 5, 9, 7, 1);
+    SelectInGroupOnMenu(45, 0, 3, 7, 1);
   }
 
   // Call to GreyOut inappropriate buttons

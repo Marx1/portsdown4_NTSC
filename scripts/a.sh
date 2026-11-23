@@ -21,6 +21,13 @@ cd /home/pi
 
 source /home/pi/rpidatv/scripts/a_functions.sh
 
+# The SRT source currently feeds a separate receive/preview and offline TS
+# validation path.  Do not fall through to another input or key any RF output.
+if [ "$(get_config_var modeinput "$PCONFIGFILE")" = "SRT" ]; then
+  echo "SRT source is receive-only; RF transmission is not connected" >&2
+  exit 2
+fi
+
 # ########################## KILL ALL PROCESSES BEFORE STARTING  ################
 
 sudo killall -9 ffmpeg >/dev/null 2>/dev/null
