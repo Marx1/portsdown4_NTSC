@@ -26,9 +26,11 @@ input_format=
 capture_size=
 capture_rate=
 deinterlace=false
+loop_image=false
 
 while (($#)); do
   if [[ "$1" == --deinterlace ]]; then deinterlace=true; shift; continue; fi
+  if [[ "$1" == --loop-image ]]; then loop_image=true; shift; continue; fi
   (($# >= 2)) || fail "missing value for $1"
   case "$1" in
     --source) source_input=$2;;
@@ -103,7 +105,7 @@ width=${size%x*}
 height=${size#*x}
 capture_width=$(( (width + 31) / 32 * 32 ))
 capture_height=$(( (height + 15) / 16 * 16 ))
-capture_size=${capture_width}x${capture_height}
+camera_size=${capture_width}x${capture_height}
 ffmpeg_args=(-hide_banner -loglevel warning -nostdin -thread_queue_size 1024)
 case "$source_input" in
   rpicam)
@@ -112,7 +114,7 @@ case "$source_input" in
     # avoids a second lossy H.264 encode before the TS bitrate is applied.
     # Use aligned dimensions so raw camera row stride is unambiguous, then
     # crop the pad before the output-rate/size conversion.
-    ffmpeg_args+=(-f rawvideo -pixel_format yuv420p -video_size "$capture_size" -framerate 30 -i pipe:0)
+    ffmpeg_args+=(-f rawvideo -pixel_format yuv420p -video_size "$camera_size" -framerate 30 -i pipe:0)
     ;;
   testsrc)
     ffmpeg_args+=(-f lavfi -i "testsrc2=size=$size:rate=30")
@@ -123,6 +125,12 @@ case "$source_input" in
     if [[ -n "$capture_size" ]]; then ffmpeg_args+=(-video_size "$capture_size"); fi
     if [[ -n "$capture_rate" ]]; then ffmpeg_args+=(-framerate "$capture_rate"); fi
     ffmpeg_args+=(-i "$source_input")
+    ;;
+  image:*)
+    image_path=${source_input#image:}
+    [[ -r "$image_path" ]] || fail "cannot read test-card image: $image_path"
+    $loop_image || fail 'image input requires --loop-image'
+    ffmpeg_args+=(-loop 1 -framerate 30 -i "$image_path")
     ;;
   *)
     [[ -r "$source_input" ]] || fail "cannot read source: $source_input"

@@ -29,11 +29,15 @@ capture and RF for those paths still need testing on the intended Pi.
 
 **DVB-S2 distinction:** the legacy `express_server` is **DVB-S only**. With
 **Source: SRT**, either the original **Express** or the separate **Express S2**
-GUI output now selects the experimental DVB-S2 QPSK path. Other sources on
-the original Express output continue to use DVB-S. Its
+GUI output selects the experimental DVB-S2 QPSK path. The modern Express
+capture route also accepts Pi Cam, NTSC composite, webcam/C920, HDMI V4L2,
+and selected test cards for DVB-S or experimental DVB-S2 QPSK. Its
 [`src/express_s2` backend](src/express_s2/express_s2.cpp) generates DVB-S2 I/Q
 and uses raw-16 USB, but has not been tested with a board. Neither 32-bit nor
 64-bit Portsdown has verified DVB-S2 transmission through DATV-Express.
+The modern local-source route is **offline-tested with a test card only**;
+physical capture, audio, USB, RF, and display operation still need tests.
+See the [source/output matrix and porting scope](doc/trixie-mode-porting-scope.md).
 
 ### Remaining work
 
@@ -42,7 +46,8 @@ and uses raw-16 USB, but has not been tested with a board. Neither 32-bit nor
    GUI/input path, direct Pi Cam and remaining video sources, and
    install/update regression.
 2. **64-bit transmitter:** validate the Pi 4 DMA and RF path, port remaining
-   ARM32-only components, and test the intended output devices. A native
+   ARM32-only components, and test the intended output devices, especially
+   Pluto/LibreSDR and Streamer as separate workstreams. A native
    build and offline modulation do not establish a working transmitter.
 3. **DATV-Express DVB-S2:** connect the board to TANK with an appropriate
    dummy load or attenuated receiver; verify raw-16 firmware, USB pacing,

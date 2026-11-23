@@ -2,7 +2,9 @@
 
 The touchscreen has **Output Device → Express S2**. The original **Express**
 selection now also routes **Source → SRT** to the same experimental DVB-S2
-QPSK backend; its other sources still use the legacy DVB-S server. Select
+QPSK backend. Selected local sources can use DVB-S through the legacy server
+or experimental S2 QPSK through the raw-16 backend via
+`express_capture_tx.py`; see [mode scope](trixie-mode-porting-scope.md). Select
 **Source → SRT**, **Modulation → S2 QPSK**, a DVB-S2 FEC, symbol rate,
 frequency, and output format. Pressing TX
 **arms** an SRT listener on UDP 9000. It does not assert PTT while waiting.

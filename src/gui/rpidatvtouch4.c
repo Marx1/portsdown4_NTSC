@@ -230,6 +230,8 @@ char CurrentPiCamOrientation[15] = "normal";
 char TabVidSource[8][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "Snap", "Contest", "Webcam", "Movie"};
 char CurrentVidSource[15] = "TestCard";
 int VidPTT = 0;             // 0 is off, 1 is on
+int ExpressTXInterlocked = 0;
+time_t ExpressTXArmedAt = 0;
 int CompVidBand = 2;        // Band used for Comp Vid Contest numbers
 int ImageIndex = 0;         // Test Card selection number
 int ImageRange = 5;         // Number of Test Cards
@@ -2510,7 +2512,8 @@ void ReadModeOutput(char Moutput[256])
 
   if (strcmp(ModeOutput, "DATVEXPRESS") == 0) 
   {
-    strcpy(Moutput, strcmp(CurrentSource, "SRT") == 0 ?
+    strcpy(Moutput, (strcmp(CurrentSource, "SRT") == 0 ||
+           strcmp(CurrentTXMode, "S2QPSK") == 0) ?
            "DATV Express DVB-S2" : "DATV Express DVB-S");
     strcpy(CurrentModeOPtext, TabModeOPtext[2]);
   } 
@@ -5467,7 +5470,8 @@ void CheckExpress()
 {
   //Check if DATV Express Required
   if (strcmp(CurrentModeOP, TabModeOP[2]) == 0 &&
-      strcmp(CurrentSource, "SRT") != 0)  // Legacy DVB-S server only
+      strcmp(CurrentSource, "SRT") != 0 &&
+      strcmp(CurrentTXMode, "S2QPSK") != 0)  // Legacy DVB-S server only
   {
     if (CheckExpressConnect() == 1)   // Not connected
     {
@@ -8646,6 +8650,20 @@ void ApplyTXConfig()
     strcpy(CurrentEncoding, "H264");
     SetConfigParam(PATH_PCONFIG, "encoding", CurrentEncoding);
   }
+  else if ((strcmp(CurrentModeOP, "DATVEXPRESS") == 0 ||
+            strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0) &&
+           strcmp(CurrentSource, "C920") == 0)
+  {
+    // A C920 is a V4L2 webcam on the modern Express capture path.
+    strcpy(ModeInput, "C920H264");
+  }
+  else if ((strcmp(CurrentModeOP, "DATVEXPRESS") == 0 ||
+            strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0) &&
+           strcmp(CurrentSource, "HDMI") == 0)
+  {
+    // Camlink-style HDMI capture is selected by expresshdmidevice.
+    strcpy(ModeInput, "HDMI");
+  }
   else if (((strcmp(CurrentModeOP, "LIMEMINI") == 0) || (strcmp(CurrentModeOP, "LIMEDVB") == 0)
          || (strcmp(CurrentModeOP, "LIMEUSB") == 0)) && (strcmp(CurrentSource, "HDMI") == 0))
   {
@@ -9006,9 +9024,12 @@ void ApplyTXConfig()
 
   // Load the Pi Cam driver for CAMMPEG-2 and Streaming modes
   //printf("TESTING FOR STREAMER\n");
-  if ((strcmp(ModeInput,"CAMMPEG-2")==0)
+  char CameraBackend[32] = "";
+  GetConfigParam(PATH_PCONFIG, "h264backend", CameraBackend);
+  if (strcmp(CameraBackend, "ffmpeg") != 0 &&
+      ((strcmp(ModeInput,"CAMMPEG-2")==0)
     ||(strcmp(ModeInput,"CAM16MPEG-2")==0)
-    ||(strcmp(ModeInput,"CAMHDMPEG-2")==0))
+    ||(strcmp(ModeInput,"CAMHDMPEG-2")==0)))
   {
     system("sudo modprobe bcm2835_v4l2");
   }
@@ -9029,6 +9050,21 @@ void EnforceValidTXMode()
     if (strcmp(CurrentTXMode, TabTXMode[2]) != 0)
     {
       strcpy(CurrentTXMode, TabTXMode[2]);
+      SetConfigParam(PATH_PCONFIG, Param, CurrentTXMode);
+    }
+    return;
+  }
+
+  if (strcmp(CurrentModeOP, "DATVEXPRESS") == 0)
+  {
+    // The original Express output retains DVB-S and adds only S2 QPSK.
+    // SRT is intentionally S2-only; other live sources may select either.
+    if (strcmp(CurrentTXMode, TabTXMode[2]) != 0 &&
+        (strcmp(CurrentSource, "SRT") == 0 ||
+         (strcmp(CurrentTXMode, TabTXMode[0]) != 0 &&
+          strcmp(CurrentTXMode, TabTXMode[1]) != 0)))
+    {
+      strcpy(CurrentTXMode, strcmp(CurrentSource, "SRT") == 0 ? TabTXMode[2] : TabTXMode[0]);
       SetConfigParam(PATH_PCONFIG, Param, CurrentTXMode);
     }
     return;
@@ -10220,6 +10256,21 @@ void GreyOut49()
     SetButtonStatus(ButtonNumber(CurrentMenu, 12), 2);
     return;
   }
+  if (strcmp(CurrentModeOP, "DATVEXPRESS") == 0)
+  {
+    // Legacy Express supports DVB-S; the new raw-16 backend adds QPSK S2.
+    for (int button = 1; button <= 3; button++)
+      SetButtonStatus(ButtonNumber(CurrentMenu, button), 2);
+    for (int button = 7; button <= 9; button++)
+      SetButtonStatus(ButtonNumber(CurrentMenu, button), 2);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 12), 2);
+    if (strcmp(CurrentSource, "SRT") == 0)
+    {
+      SetButtonStatus(ButtonNumber(CurrentMenu, 5), 2);
+      SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2);
+    }
+    return;
+  }
   if ((strcmp(CurrentModeOP, "LIMEUSB") != 0)
    && (strcmp(CurrentModeOP, "LIMEMINI") != 0)
    && (strcmp(CurrentModeOP, "LIMEDVB") != 0)
@@ -10657,14 +10708,16 @@ void SelectOP(int NoButton)      // Output device
   strcpy(CurrentModeOP, TabModeOP[index]);
   strcpy(CurrentModeOPtext, TabModeOPtext[index]);
 
+  EnforceValidTXMode();
+  EnforceValidFEC();
+
   // Start DATV Express if required
   if (strcmp(CurrentModeOP, TabModeOP[2]) == 0 &&
-      strcmp(CurrentSource, "SRT") != 0)  // Legacy DVB-S server only
+      strcmp(CurrentSource, "SRT") != 0 &&
+      strcmp(CurrentTXMode, "S2QPSK") != 0)  // Legacy DVB-S server only
   {
     StartExpressServer();
   }
-  EnforceValidTXMode();
-  EnforceValidFEC();
 
   // Check Lime Connected if selected
   CheckLimeReady();
@@ -10706,8 +10759,8 @@ void SelectSource(int NoButton)  // Video Source
     SetConfigParam(PATH_PCONFIG, "modeinput", "HDMI");
   } 
   ApplyTXConfig();
-  // Express uses the existing DVB-S server for other sources, but SRT is
-  // routed to the interlocked raw-16 DVB-S2 backend.
+  // Keep Express modulation/FEC compatible when changing source. SRT forces
+  // experimental S2; selected local sources may use DVB-S or S2 QPSK.
   char selected_fec[16] = "";
   GetConfigParam(PATH_PCONFIG, "fec", selected_fec);
   fec = atoi(selected_fec);
@@ -12496,12 +12549,31 @@ void TransmitStart()
   GetConfigParam(PATH_PCONFIG,Param,Value);
   strcpy(ModeInput,Value);
 
-  if (strcmp(ModeInput, "SRT") == 0)
+  char H264Backend[32] = "";
+  GetConfigParam(PATH_PCONFIG, "h264backend", H264Backend);
+  int local_express_source =
+      strncmp(ModeInput, "CAM", 3) == 0 ||
+      strncmp(ModeInput, "ANALOG", 6) == 0 ||
+      strncmp(ModeInput, "WEBCAM", 6) == 0 ||
+      strncmp(ModeInput, "C920", 4) == 0 ||
+      strncmp(ModeInput, "CARD", 4) == 0 ||
+      strcmp(ModeInput, "HDMI") == 0 ||
+      strcmp(ModeInput, "PATERNAUDIO") == 0;
+  int interlocked_express =
+      strcmp(ModeInput, "SRT") == 0 ||
+      strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0 ||
+      (strcmp(CurrentModeOP, "DATVEXPRESS") == 0 &&
+       (strcmp(CurrentTXMode, "S2QPSK") == 0 ||
+        (strcmp(CurrentTXMode, "DVB-S") == 0 &&
+         strcmp(H264Backend, "ffmpeg") == 0 && local_express_source)));
+
+  if (interlocked_express)
   {
-    // Do not run PTT, TXstartextras, or LimeRFE before source validation.
-    // The supervisor starts the backend only after live TS is validated.
+    // Do not run PTT, TXstartextras, or LimeRFE before live source validation.
     strcpy(ScreenState, "TXwithMenu");
-    system("/home/pi/rpidatv/scripts/a.sh >/tmp/portsdown-srt-tx.log 2>&1 &");
+    ExpressTXInterlocked = 1;
+    ExpressTXArmedAt = time(NULL);
+    system("/home/pi/rpidatv/scripts/a.sh >/tmp/portsdown-express-tx.log 2>&1 &");
     return;
   }
 
@@ -12612,6 +12684,7 @@ void TransmitStop()
   char picamdev1[15];
 
   printf("\nStopping all transmit processes, even if they weren't running\n");
+  ExpressTXInterlocked = 0;
 
   // Stop the interlocked backend and wait for its deinit before generic
   // killall calls affect the SRT encoder.
@@ -20759,7 +20832,7 @@ void waituntil(int w,int h)
   for (;;)
   {
     if (strcmp(ScreenState, "TXwithMenu") == 0 &&
-        strcmp(ModeInput, "SRT") == 0)
+        ExpressTXInterlocked && time(NULL) - ExpressTXArmedAt >= 2)
     {
       FILE *srt_pid_file = fopen("/tmp/portsdown-srt-tx.pid", "r");
       long srt_pid = 0;
@@ -20770,6 +20843,7 @@ void waituntil(int w,int h)
       }
       if (srt_pid <= 1 || kill((pid_t)srt_pid, 0) != 0)
       {
+        ExpressTXInterlocked = 0;
         SelectPTT(20, 0);
         strcpy(ScreenState, "NormalMenu");
         UpdateWindow();
@@ -21132,11 +21206,6 @@ void waituntil(int w,int h)
               UpdateWindow();
               TransmitStart();
             }
-          }
-          else if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0)
-          {
-            MsgBox2("DATV Express S2 requires SRT", "Select Source: SRT first");
-            wait_touch();
           }
           else if (strcmp(CurrentModeOP, "COMPVID") == 0) // Comp Vid OP
           {

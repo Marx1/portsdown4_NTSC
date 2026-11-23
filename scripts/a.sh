@@ -26,9 +26,20 @@ source /home/pi/rpidatv/scripts/a_functions.sh
 if [ "$(get_config_var modeinput "$PCONFIGFILE")" = "SRT" ]; then
   exec python3 "$PATHSCRIPT/srt_interlocked_tx.py" --config "$PCONFIGFILE"
 fi
-if [ "$(get_config_var modeoutput "$PCONFIGFILE")" = "DATVEXPRESS_S2" ]; then
-  echo "DATV Express S2 currently requires the interlocked SRT source" >&2
-  exit 2
+EXPRESS_OUTPUT=$(get_config_var modeoutput "$PCONFIGFILE")
+EXPRESS_MODULATION=$(get_config_var modulation "$PCONFIGFILE")
+EXPRESS_SOURCE=$(get_config_var modeinput "$PCONFIGFILE")
+EXPRESS_BACKEND=$(get_config_var h264backend "$PCONFIGFILE")
+if [ "$EXPRESS_OUTPUT" = "DATVEXPRESS_S2" ] ||
+   { [ "$EXPRESS_OUTPUT" = "DATVEXPRESS" ] && [ "$EXPRESS_MODULATION" = "S2QPSK" ]; }; then
+  exec python3 "$PATHSCRIPT/express_capture_tx.py" --config "$PCONFIGFILE"
+fi
+if [ "$EXPRESS_OUTPUT" = "DATVEXPRESS" ] &&
+   [ "$EXPRESS_MODULATION" = "DVB-S" ] && [ "$EXPRESS_BACKEND" = "ffmpeg" ]; then
+  case "$EXPRESS_SOURCE" in
+    CAM*|ANALOG*|WEBCAM*|C920*|HDMI|CARD*|PATERNAUDIO)
+      exec python3 "$PATHSCRIPT/express_capture_tx.py" --config "$PCONFIGFILE" ;;
+  esac
 fi
 
 # ########################## KILL ALL PROCESSES BEFORE STARTING  ################

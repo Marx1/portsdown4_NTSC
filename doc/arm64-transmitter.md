@@ -48,9 +48,14 @@ existing `rover-web.service` remained active.
 
 ## DATV-Express USB: DVB-S is not DVB-S2
 
-The existing Portsdown `DATVEXPRESS` output remains **DVB-S only**. A distinct
-experimental `DATVEXPRESS_S2` GUI output selects S2 QPSK with an interlocked
-SRT source; it does not change the legacy mode. The old Linux
+The old Linux `express_server` remains **DVB-S only**. The original
+`DATVEXPRESS` GUI output retains that path and now offers an experimental
+S2 QPSK selection. The separate `DATVEXPRESS_S2` GUI output also selects
+that S2 QPSK path. Live SRT uses its own interlocked supervisor; selected
+local Pi Cam, NTSC composite, webcam/C920, HDMI V4L2, and test-card sources
+use `express_capture_tx.py`. Only test-card gating has been checked offline;
+none of these local sources have been verified on a complete Pi installation
+or with a board. The old Linux
 `express_server` runs the board's DVB-S FPGA firmware, not a DVB-S2
 modulator. Building that server for AArch64 therefore does **not** meet the
 requested Portsdown DVB-S2 output.
@@ -94,7 +99,7 @@ MPEG-TS packets (`-` means stdin); `--tx --frequency HZ` is an explicit,
 still-unverified hardware mode that requires an input and holds the board at
 maximum built-in attenuation. It has **not** been run with the board. The GUI
 now has a separate **Express S2** mode that invokes this backend only after
-valid live SRT TS is received. The backend supports its listed QPSK FEC rates,
+valid live video TS is received. The backend supports its listed QPSK FEC rates,
 normal frames, pilots off, and 35% rolloff. Build with the external library and
 development headers installed:
 
@@ -116,9 +121,11 @@ run**, not a working DATV-Express DVB-S2 transmission.
 
 The path to a verifiable Portsdown DVB-S2/DATV-Express transmitter is:
 
-1. The separate `DATVEXPRESS_S2` GUI output and live SRT interlock now build
-   natively on TANK and pass offline gate/disconnect/stall tests. Preserve the
-   working DVB-S mode. Validate GUI interaction with an actual 800×480
+1. The separate `DATVEXPRESS_S2` GUI output and live SRT interlock built
+   natively on TANK and passed offline gate/disconnect/stall tests. The newer
+   local-source route has passed bounded test-card dry runs on the development
+   host, but its latest GUI changes have not been rebuilt on TANK. Preserve
+   the working DVB-S mode. Validate GUI interaction with an actual 800×480
    framebuffer, and extend the backend beyond QPSK/normal-frame/pilots-off
    only after hardware tests.
 2. Adapt the existing Linux raw-16 USB transport for continuous I/Q. Set the
