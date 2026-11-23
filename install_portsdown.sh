@@ -54,16 +54,71 @@ cd /home/pi
 wget https://github.com/${GIT_SRC}/portsdown4_NTSC/raw/master/scripts/configs/vlc
 sudo cp vlc /etc/apt/preferences.d/vlc
 
-# Amend the sources.list to legacy
-sudo bash -c 'echo -e "deb http://legacy.raspbian.org/raspbian/ buster main contrib non-free rpi" > /etc/apt/sources.list'
+
+# Configure legacy Raspbian Buster repositories
+echo
+echo "------------------------------------------------"
+echo "----- Configuring Buster APT Repositories -----"
+echo "------------------------------------------------"
+
+# Back up existing repository configuration
+APT_BACKUP="/etc/apt/portsdown-backup-$(date +%Y%m%d-%H%M%S)"
+sudo mkdir -p "$APT_BACKUP"
+
+sudo cp -a /etc/apt/sources.list "$APT_BACKUP/" || exit 1
+
+if [ -d /etc/apt/sources.list.d ]; then
+  sudo cp -a /etc/apt/sources.list.d "$APT_BACKUP/" || exit 1
+fi
+
+# Replace obsolete Raspbian mirrors with the legacy archive.
+# Do not modify archive.raspberrypi.org/debian, which is
+# a separate repository for Raspberry Pi-specific packages.
+
+for source_file in /etc/apt/sources.list \
+                   /etc/apt/sources.list.d/*.list; do
+
+  [ -f "$source_file" ] || continue
+
+  sudo sed -i -E \
+    '/^[[:space:]]*deb(-src)?[[:space:]]/ {
+      /[[:space:]]buster[[:space:]]/ {
+        s@https?://(raspbian\.raspberrypi\.org|archive\.raspbian\.org|mirrordirector\.raspbian\.org)/raspbian/?@https://legacy.raspbian.org/raspbian/@g
+      }
+    }' "$source_file" || exit 1
+done
+
+# Make sure the Raspbian Buster repository exists
+if ! grep -Eh \
+  '^[[:space:]]*deb[[:space:]].*legacy\.raspbian\.org/raspbian/?.*[[:space:]]buster[[:space:]]' \
+  /etc/apt/sources.list \
+  /etc/apt/sources.list.d/*.list 2>/dev/null | grep -q .; then
+
+  echo "Adding missing Raspbian Buster repository."
+
+  echo "deb https://legacy.raspbian.org/raspbian/ buster main contrib non-free rpi" | \
+    sudo tee -a /etc/apt/sources.list >/dev/null || exit 1
+fi
 
 # Update the package manager
 echo
 echo "------------------------------------"
 echo "----- Updating Package Manager -----"
 echo "------------------------------------"
-sudo dpkg --configure -a
-sudo apt-get update --allow-releaseinfo-change
+
+sudo dpkg --configure -a || exit 1
+
+if ! sudo apt-get update --allow-releaseinfo-change; then
+  echo
+  echo "ERROR: APT update failed."
+  echo "Check the repository errors above."
+  echo "APT configuration backup: $APT_BACKUP"
+  exit 1
+fi
+
+echo
+echo "APT repositories updated successfully."
+
 
 # Uninstall the apt-listchanges package to allow silent install of ca certificates (201704030)
 # http://unix.stackexchange.com/questions/124468/how-do-i-resolve-an-apparent-hanging-update-process
@@ -134,14 +189,6 @@ sudo apt-get -y install libhamlib-dev                                   # For IS
 sudo apt-get -y install libhamlib++-dev                                 # For ISS tracker
 sudo apt-get -y install libhamlib-utils                                 # For ISS tracker
 pip3 install ephem requests                                             # For ISS tracker
-
-
-  read -n1 -r -s key;
-  if [[ $key == q ]]; then
-    exit 1;
-  fi
-  echo "ok!";
-
 
 # Install WiringPi
 cd ~
@@ -372,35 +419,22 @@ if [[ "$?" != "0" ]]; then
     /home/pi/.local/share/LimeSuite/images/23.11/LimeSDR-Mini_HW_2.0_r2.2.bit
 fi
 
-#echo
-#echo "--------------------------------------------------------------"
-#echo "----- Downloading Portsdown 4 version of avc2ts Software -----"
-#echo "--------------------------------------------------------------"
+echo
+echo "--------------------------------------------------"
+echo "----- Cloning Marx1 avc2ts Source Repository -----"
+echo "--------------------------------------------------"
 
+cd /home/pi
 
-#This app is going to be depricated in the NTSC version of portsdown.
+git clone --branch master \
+  https://github.com/Marx1/avc2ts.git \
+  /home/pi/avc2ts || exit 1
 
-# Legacy avc2ts build is disabled; do not download an unused archive.
-#since the following isn't in use yet, and it breaks on the pi4+ remove it.
+echo "avc2ts source downloaded successfully."
 
-#libyuv should be used for fast picture transformation : not yet implemented
-#git clone https://chromium.googlesource.com/libyuv/libyuv
-#cd libyuv
-#should patch linux.mk with -DHAVE_JPEG on CXX and CFLAGS
-#seems to be link with libjpeg9-dev
-#make V=1 -f linux.mk
-#cd ../
 
 # Required for ffmpegsrc.cpp
 sudo apt-get -y install libvncserver-dev libavcodec-dev libavformat-dev libswscale-dev libavdevice-dev
-
-
-  read -n1 -r -s key;
-  if [[ $key == q ]]; then
-    exit 1;
-  fi
-  echo "ok!";
-
 
 # Compile rpidatv gui
 echo
@@ -449,10 +483,12 @@ make install
 #cd ../
 
 # Make avc2ts
-#cd /home/pi/avc2ts
-#make
-#cp avc2ts ../rpidatv/bin/
-#cd /home/pi
+cd /home/pi/avc2ts || exit 1
+
+make || exit 1
+install -m 755 avc2ts /home/pi/rpidatv/bin/avc2ts || exit 1
+
+cd /home/pi
 
 echo
 echo "-----------------------------------------------"
