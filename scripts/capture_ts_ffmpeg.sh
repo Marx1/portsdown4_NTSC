@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Modern Pi Camera capture to constant-rate MPEG-TS. No RF or PTT control here.
+# Modern Pi Camera or V4L2 capture to constant-rate MPEG-TS. No RF/PTT control.
 set -euo pipefail
 
-fail() { printf 'picam_ts_ffmpeg: %s\n' "$*" >&2; exit 2; }
+fail() { printf 'capture_ts_ffmpeg: %s\n' "$*" >&2; exit 2; }
 source_input=rpicam
 codec=h264
 video_encoder=auto
@@ -22,8 +22,13 @@ audio_channels=1
 audio_rate=48000
 rotation=0
 duration=
+input_format=
+capture_size=
+capture_rate=
+deinterlace=false
 
 while (($#)); do
+  if [[ "$1" == --deinterlace ]]; then deinterlace=true; shift; continue; fi
   (($# >= 2)) || fail "missing value for $1"
   case "$1" in
     --source) source_input=$2;;
@@ -45,6 +50,9 @@ while (($#)); do
     --audio-rate) audio_rate=$2;;
     --rotation) rotation=$2;;
     --duration) duration=$2;;
+    --input-format) input_format=$2;;
+    --capture-size) capture_size=$2;;
+    --capture-rate) capture_rate=$2;;
     *) fail "unknown option: $1";;
   esac
   shift 2
@@ -54,6 +62,8 @@ done
 [[ "$size" =~ ^[0-9]+x[0-9]+$ ]] || fail 'size must be WIDTHxHEIGHT'
 [[ "$fps" =~ ^[0-9]+(/[0-9]+)?$ ]] || fail 'fps must be a positive integer or fraction'
 [[ "$rotation" == 0 || "$rotation" == 180 ]] || fail 'rotation must be 0 or 180'
+[[ -z "$capture_size" || "$capture_size" =~ ^[0-9]+x[0-9]+$ ]] || fail 'capture size must be WIDTHxHEIGHT'
+[[ -z "$capture_rate" || "$capture_rate" =~ ^[0-9]+(/[0-9]+)?$ ]] || fail 'capture rate must be a positive integer or fraction'
 [[ -n "$output" ]] || fail 'output is required'
 for value in "$video_bitrate" "$muxrate" "$pmt_pid" "$video_pid" "$audio_pid" "$service_id" "$audio_bitrate" "$audio_channels" "$audio_rate"; do
   [[ "$value" =~ ^[0-9]+$ ]] || fail 'bitrate, PID, service, and audio values must be unsigned integers'
@@ -86,7 +96,7 @@ if [[ "$codec" == h264 ]]; then
       else ffmpeg_encoder=libx264; fi;;
     *) fail 'video encoder must be software, hardware, or auto';;
   esac
-  printf 'picam_ts_ffmpeg: using %s\n' "$ffmpeg_encoder" >&2
+  printf 'capture_ts_ffmpeg: using %s\n' "$ffmpeg_encoder" >&2
 fi
 
 width=${size%x*}
@@ -107,6 +117,13 @@ case "$source_input" in
   testsrc)
     ffmpeg_args+=(-f lavfi -i "testsrc2=size=$size:rate=30")
     ;;
+  /dev/video*)
+    ffmpeg_args+=(-f v4l2)
+    if [[ -n "$input_format" ]]; then ffmpeg_args+=(-input_format "$input_format"); fi
+    if [[ -n "$capture_size" ]]; then ffmpeg_args+=(-video_size "$capture_size"); fi
+    if [[ -n "$capture_rate" ]]; then ffmpeg_args+=(-framerate "$capture_rate"); fi
+    ffmpeg_args+=(-i "$source_input")
+    ;;
   *)
     [[ -r "$source_input" ]] || fail "cannot read source: $source_input"
     ffmpeg_args+=(-i "$source_input")
@@ -125,6 +142,7 @@ video_filter="fps=$fps,scale=${size/x/:}:flags=fast_bilinear,format=yuv420p"
 if [[ "$source_input" == rpicam ]]; then
   video_filter="crop=${width}:${height},$video_filter"
 fi
+if $deinterlace; then video_filter="yadif=mode=send_frame,$video_filter"; fi
 ffmpeg_args+=(-map 0:v:0 -vf "$video_filter" -r "$fps")
 if [[ "$codec" == h264 ]]; then
   ffmpeg_args+=(-c:v "$ffmpeg_encoder" -g 60 -bf 0)

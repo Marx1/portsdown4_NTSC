@@ -57,8 +57,10 @@ The Trixie factory selects `auto`, `outputstandard=480`, and
 set the capture card standard to NTSC even if an older config says otherwise.
 The separate FFmpeg helper still has a PAL test mode, but PAL is not an
 operational target. The Pi Camera H.264 and MPEG-2 modes have a new
-`rpicam-vid` → FFmpeg TS path when `h264backend=ffmpeg`; it is still awaiting
-direct camera/display/RF verification. Pluto RTMP, desktop, test-card, HDMI,
+`rpicam-vid` → FFmpeg TS path when `h264backend=ffmpeg`; analog and webcam
+MPEG-2 modes now use V4L2 → FFmpeg TS, including MJPEG input for webcams that
+advertise it. These paths still await direct capture/display/RF verification.
+Pluto RTMP, desktop, test-card, HDMI,
 and other H.264 paths **have not** been ported to this backend.
 The hardware option is conditional even on 32-bit Trixie: FFmpeg may list
 `h264_v4l2m2m` when the Pi kernel exposes no usable encoder. `auto` encodes a
@@ -133,7 +135,7 @@ With the rover service left running, a separate bounded test captured 15
 live IMX708 snapshot frames from its local API and encoded a decodable
 720×480 MPEG-2 TS offline. This provides a camera-derived test input without
 taking control of the rover camera. The GUI already offers **Pi Cam** in its
-Video Source menu for 480p/720p. The new `scripts/picam_ts_ffmpeg.sh` encoded
+Video Source menu for 480p/720p. The new `scripts/capture_ts_ffmpeg.sh` encoded
 that recording to decodable H.264/AAC and MPEG-2/MP2 TS. Its raw YUV420 input
 path also passed with a simulated `rpicam-vid` producer. TANK's FFmpeg selected
 the Pi V4L2 M2M H.264 encoder in the bounded file-input test. The rover service

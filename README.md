@@ -23,6 +23,9 @@ and system FFmpeg instead of the Buster camera stack. A TANK IMX708-derived
 recording and a simulated raw camera pipe produced decodable TS offline.
 TANK's rover owns the actual camera, so direct `rpicam-vid` capture,
 touchscreen transmission, and RF remain unverified.
+The same capture helper also handles NTSC EasyCap and webcam MPEG-2 through
+V4L2; it selects MJPEG input for a webcam that advertises it. Device-level
+capture and RF for those paths still need testing on the intended Pi.
 
 **DVB-S2 distinction:** the existing Portsdown `DATVEXPRESS` GUI mode and
 `express_server` are **DVB-S only**. The new **Express S2** GUI output is a
