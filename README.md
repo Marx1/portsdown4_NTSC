@@ -40,7 +40,13 @@ Our thanks to Evariste, Heather, Charles and all the other contributors to this 
 
 Item of warning: Analog in (CompVid) does NOT support 720p, or 1080p. You can play with the 16:9 but it's a non-standard resolution and depending on how your repeater is setup (I.E Breaks back down to analog video vs all digital) it can cause squished video.
 
-# Why 
+## What DOES NOT work, and with this build, and will probably never be supported on this base OS. (and why)
+
+
+- Analog on any mode besides 4:3 - Because we're no doing any up conversion on the portsdown.
+- Logitech C920x H264 720P or 1080P. This is due the H264 encoder needing the YUVU/YUV420 color space, and the camera can't physically do this at 30fps. It can do 720p @ 10fps, and 1080p @ 5fps. The camera does support MJPEG, but due to firmware and software limits, I can't modify the avs2ts encoder that is used to work with this image format. Trixie will fix this, as we're going to use FFMPEG for everything. This is why it's in B&W or doesn't work at all.
+- Any of the 16:9 modes. This is a PAL one-off format that we don't use here. 
+- Test Cards - This is because it uses the screen resolutions, and the repeater doesn't do well with conversions.
 
 
 # Installation for BATC Portsdown RPi 4 Version
