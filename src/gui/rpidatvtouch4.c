@@ -12576,6 +12576,9 @@ void TransmitStart()
       strcmp(ModeInput, "PATERNAUDIO") == 0;
   int interlocked_express =
       strcmp(ModeInput, "SRT") == 0 ||
+      strcmp(ModeInput, "IPTSIN") == 0 ||
+      strcmp(ModeInput, "IPTSIN264") == 0 ||
+      strcmp(ModeInput, "IPTSIN265") == 0 ||
       strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0 ||
       (strcmp(CurrentModeOP, "DATVEXPRESS") == 0 &&
        (strcmp(CurrentTXMode, "S2QPSK") == 0 ||

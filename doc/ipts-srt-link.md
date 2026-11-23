@@ -48,14 +48,46 @@ scripts/ipts_srt_bridge.sh --receive --srt-port 10000 \
 
 Then point a local TS player or ingest process at `udp://127.0.0.1:10001`.
 Stop that bridge with `scripts/ipts_srt_stop.sh /tmp/manual-ipts-srt.pid`.
-The GUI's legacy **Encoding → IPTS in** consumes raw UDP TS. To feed it
-through the manual bridge, set the receiving Pi's `udpinport=10001` and
-`iptransport=udp`; keep the SRT listener on network port 10000. This is a
-transport handoff, **not** a verified or loss-interlocked RF path: legacy
-IPTS-in-to-transmitter code can key RF before valid TS arrives. Do not use
-that legacy path for unattended RF. The separate **Source: SRT → Express S2**
-supervisor has a valid-video TX gate, but it transcodes/rate-shapes and is
-not a transparent IPTS input.
+The GUI's **Encoding → IPTS in** can now receive raw UDP TS or listen for SRT
+directly. For RF input, select **TS IP Config → IP TS: UDP/SRT** and set
+**TS In IP Port**. Do **not** start the separate SRT monitor bridge on that
+same port. A manual bridge can still translate SRT to local UDP: set
+`udpinport=10001` and `iptransport=udp`, leaving the bridge listener on
+network port 10000.
+
+### Interlocked IPTS input to Express RF (experimental)
+
+**Encoding → IPTS in / IPTS in H264 / IPTS in H265** now bypasses the old
+`a.sh` IPTS case. That case used to start PTT/modulators before TS arrived.
+The new `ipts_interlocked_tx.py` waits for a live FFmpeg-probed video stream,
+fresh PAT/PMT, at least 30 video packets and three video PES starts before
+it starts **DATV-Express DVB-S** or the experimental **Express DVB-S2 QPSK**
+backend. SRT is listened to directly on `udpinport`; raw UDP TS is also
+accepted there. When video packets cease for two seconds, or the sender
+disconnects, it releases DVB-S PTT or stops the DVB-S2 backend. It remains
+armed with RF off and waits for a *new live* source; pressing Stop ends the
+supervisor. It never sends the preview card or a saved TS to RF.
+
+Other IPTS-to-RF outputs (Pi, Lime, Pluto, Muntjac, etc.) now **fail closed**
+instead of falling into the pre-key legacy path. They need individual
+interlocked ports before they can be used with IPTS input again. IPTS input
+paired with IP Output/Streamer is also not a supported TX combination yet;
+the separate IPTS Monitor and IP Output sender remain available. The current
+path remuxes/copies video and optional audio, requesting a TS mux rate at
+90% of the selected symbol-rate/FEC capacity; it neither validates input
+bitrate nor transcodes oversized inputs. Supply a
+source bitrate below that capacity and a regular keyframe with repeated
+codec headers (OBS/FFmpeg: around one-second GOP). A PAT/PMT/video-packet
+gate does not prove all video frames are decodable or RF quality.
+
+While IPTS TX is armed, add `http://<Portsdown-Pi>:9015/return.ts` as an OBS
+Media Source (local file unchecked). It serves 426×240 H.264/AAC TS over
+HTTP. With no validated input, it shows SMPTE bars with centered black
+**NO IP INPUT** text; it switches to live video after the gate, and back to
+the card after loss. The preview receives only the supervisor's live TS
+copy on localhost UDP 9016. It neither keys RF nor loops a recording. Port
+9015 is separate from TANK's existing OBS SRT return on port 9013. This
+preview exists while IPTS TX is armed; pressing Stop closes the HTTP server.
 
 `iptslocalport=10001` can be changed in `portsdown_config.txt` if localhost
 UDP 10001 is occupied. The SRT bridge's receive and transmit processes use
@@ -71,7 +103,15 @@ audio after both bursts. The stop helper cleared each bridge's PID file.
 That verifies the transport mechanism only. Physical
 Portsdown menus, two-Pi networking, camera/HDMI/audio capture, Streamer RTMP
 on Trixie, IPTS monitor playback, TS rate suitability, and downstream RF
-remain unverified. There is no fresh 64-bit Trixie Portsdown installation yet.
+remain unverified. The new IPTS RF gate was tested in DVB-S dry-run with
+UDP TS: no input kept RF off, live synthetic H.264 TS passed the gate, and
+stopping input dropped the gate. An SRT dry-run with a fake DVB-S2 backend
+also started only after video and stopped the backend on sender disconnect.
+The preview card rendered correctly; a continuous HTTP TS capture decoded
+card → live → card, without changing the OBS URL. These are **software-only**
+checks: USB, PTT off timing, RF, GUI runtime, two-Pi network, and receiver
+decode still need hardware testing. There is no fresh 64-bit Trixie Portsdown
+installation yet.
 Shell syntax and `git diff --check` pass. The changed GUI could not be rebuilt
 on the development host because FFTW and FastCGI development headers are
 missing; no new TANK native build is claimed for this change.

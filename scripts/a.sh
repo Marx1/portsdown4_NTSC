@@ -26,6 +26,11 @@ source /home/pi/rpidatv/scripts/a_functions.sh
 if [ "$(get_config_var modeinput "$PCONFIGFILE")" = "SRT" ]; then
   exec python3 "$PATHSCRIPT/srt_interlocked_tx.py" --config "$PCONFIGFILE"
 fi
+case "$(get_config_var modeinput "$PCONFIGFILE")" in
+  IPTSIN|IPTSIN264|IPTSIN265)
+    # Never enter the legacy IPTS case: it keys RF before any TS arrives.
+    exec python3 "$PATHSCRIPT/ipts_interlocked_tx.py" --config "$PCONFIGFILE" ;;
+esac
 EXPRESS_OUTPUT=$(get_config_var modeoutput "$PCONFIGFILE")
 EXPRESS_MODULATION=$(get_config_var modulation "$PCONFIGFILE")
 EXPRESS_SOURCE=$(get_config_var modeinput "$PCONFIGFILE")
