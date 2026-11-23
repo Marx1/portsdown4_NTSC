@@ -78,6 +78,8 @@ This version is based on Raspberry Pi OS Buster Lite and is only compatible with
 
 Our thanks to Evariste, Heather, Charles and all the other contributors to this community project.  All code within the project is GPL.
 
+KG6MDW's [Buster/Lime Mini C920x, analog, and Camlink test results](doc/buster-limemini-test-results.md) are preserved separately; they do not establish Trixie or DATV-Express S2 hardware compatibility.
+
 # Installation for BATC Portsdown RPi 4 Version
 
 The preferred installation method only needs a Windows PC connected to the same (internet-connected) network as your Raspberry Pi.  Do not connect a keyboard or HDMI display directly to your Raspberry Pi.
@@ -85,7 +87,7 @@ The preferred installation method only needs a Windows PC connected to the same 
 - First download the 2023-05-03 release of Raspberry Pi OS Lite (Legacy) on to your Windows PC from here 
 https://downloads.raspberrypi.org/raspios_oldstable_lite_armhf/images/raspios_oldstable_lite_armhf-2023-05-03/2023-05-03-raspios-buster-armhf-lite.img.xz
 
-- Unzip the image (using 7zip as it is a .xz compressed file) and then transfer it to a Micro-SD Card using Win32diskimager https://sourceforge.net/projects/win32diskimager/
+- Unzip the image (using 7zip as it is a .xz compressed file) and then transfer it to a Micro-SD Card using Win32diskimager https://sourceforge.net/projects/win32diskimager/ or Raspberry Pi Imager. For this legacy Buster procedure, leave the username as `pi`.
 
 - Before you remove the card from your Windows PC, look at the card with windows explorer; the volume should be labeled "boot".  Create a new empty file called ssh in the top-level (root) directory by right-clicking, selecting New, Text Document, and then change the name to ssh (not ssh.txt).  You should get a window warning about changing the filename extension.  Click OK.  If you do not get this warning, you have created a file called ssh.txt and you need to rename it ssh.  IMPORTANT NOTE: by default, Windows (all versions) hides the .txt extension on the ssh file.  To change this, in Windows Explorer, select File, Options, click the View tab, and then untick "Hide extensions for known file types". Then click OK.
 
