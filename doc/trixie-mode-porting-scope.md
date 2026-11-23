@@ -22,7 +22,7 @@ server to receive. `--dry-run` does not open the board or assert PTT.
 | Webcam/C920 | V4L2 MJPEG if advertised, otherwise YUYV | Set `expresswebcamdevice=/dev/videoN`; actual format/raster and audio require device tests. The GUI now retains C920 selection for H.264. |
 | HDMI capture | V4L2 to FFmpeg | Set `expresshdmidevice=/dev/videoN` for a Camlink-like device. This is **not** the network LKV HDMI path; audio device needs explicit configuration. |
 | Test card | Explicit looped image to FFmpeg | `expresstestcard=/path/image.jpg` optional. It is a deliberately selected source, never a fallback for lost SRT. |
-| SRT | Separate `srt_interlocked_tx.py` | Experimental DVB-S2 QPSK only; no saved-TS fallback. Actual ATEM output untested. |
+| SRT | `ipts_interlocked_tx.py` for Express DVB-S; `srt_interlocked_tx.py` for experimental DVB-S2 QPSK | Both listen for live MPEG-TS over SRT on port 9000; DVB-S transcodes to MPEG-2/MP2 480p. No saved-TS fallback. Actual ATEM output untested. |
 
 Set `expressaudiodevice=hw:X,Y` (or another FFmpeg ALSA identifier) for
 capture audio; without it the local-source TS is video-only. Set

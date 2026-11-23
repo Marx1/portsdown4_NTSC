@@ -51,7 +51,8 @@ existing `rover-web.service` remained active.
 The old Linux `express_server` remains **DVB-S only**. The original
 `DATVEXPRESS` GUI output retains that path and now offers an experimental
 S2 QPSK selection. The separate `DATVEXPRESS_S2` GUI output also selects
-that S2 QPSK path. Live SRT uses its own interlocked supervisor; selected
+that S2 QPSK path. Live SRT uses separate interlocked DVB-S and S2 supervisors;
+the DVB-S route converts incoming SRT MPEG-TS to MPEG-2/MP2 480p. Selected
 local Pi Cam, NTSC composite, webcam/C920, HDMI V4L2, and test-card sources
 use `express_capture_tx.py`. Only test-card gating has been checked offline;
 none of these local sources have been verified on a complete Pi installation
@@ -169,8 +170,9 @@ actual RF/PTT state before any transmission; the server initializes hardware
 before reading `datvexpress.txt`, which requests `set ptt rx`.
 
 The standalone SRT ingest tool and its separate verification are described in
-[`srt-express-ingest.md`](srt-express-ingest.md). It does not yet feed or start
-the server.
+[`srt-express-ingest.md`](srt-express-ingest.md). That standalone ingest tool
+still does not feed or start the server; the separate live Source=SRT route
+does so behind the video gate. See [interlocked SRT TX](srt-interlocked-tx.md).
 
 ## Remaining before arm64 support can be claimed
 

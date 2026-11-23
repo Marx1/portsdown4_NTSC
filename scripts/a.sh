@@ -24,6 +24,10 @@ source /home/pi/rpidatv/scripts/a_functions.sh
 # SRT uses a dedicated interlocked transmitter. The legacy path below can
 # assert PTT before it knows whether any source TS exists.
 if [ "$(get_config_var modeinput "$PCONFIGFILE")" = "SRT" ]; then
+  if [ "$(get_config_var modulation "$PCONFIGFILE")" = "DVB-S" ]; then
+    # Live MPEG-2/MP2 DVB-S uses the same fail-closed input gate as IPTS.
+    exec python3 "$PATHSCRIPT/ipts_interlocked_tx.py" --config "$PCONFIGFILE"
+  fi
   exec python3 "$PATHSCRIPT/srt_interlocked_tx.py" --config "$PCONFIGFILE"
 fi
 case "$(get_config_var modeinput "$PCONFIGFILE")" in

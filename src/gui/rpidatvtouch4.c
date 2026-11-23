@@ -224,7 +224,7 @@ char CurrentPiCamOrientation[15] = "normal";
 // "IPTSIN","ANALOGMPEG-2", "CARDMPEG-2", "CAMHDMPEG-2", "DESKTOP", "FILETS"
 //  NOT "C920"
 // "JHDMI", "JCAM", "JPC", "JCARD", "JWEBCAM", "HDMI"
-// "IPTSIN264", "IPTSIN265", "SRT" (interlocked Express S2 source)
+// "IPTSIN264", "IPTSIN265", "SRT" (interlocked Express DVB-S/S2 source)
 
 // Composite Video Output variables
 char TabVidSource[8][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "Snap", "Contest", "Webcam", "Movie"};
@@ -2320,9 +2320,11 @@ void ReadModeInput(char coding[256], char vsource[256])
   }
   else if (strcmp(ModeInput, "SRT") == 0)
   {
-    strcpy(coding, "H264");
+    char srt_modulation[16] = "";
+    GetConfigParam(PATH_PCONFIG, "modulation", srt_modulation);
+    strcpy(coding, strcmp(srt_modulation, "DVB-S") == 0 ? "MPEG-2" : "H264");
     strcpy(vsource, "SRT");
-    strcpy(CurrentEncoding, "H264");
+    strcpy(CurrentEncoding, coding);
     strcpy(CurrentSource, TabSource[10]);
   }
   else if (strcmp(ModeInput, "IPTSIN") == 0)
@@ -2525,8 +2527,7 @@ void ReadModeOutput(char Moutput[256])
 
   if (strcmp(ModeOutput, "DATVEXPRESS") == 0) 
   {
-    strcpy(Moutput, (strcmp(CurrentSource, "SRT") == 0 ||
-           strcmp(CurrentTXMode, "S2QPSK") == 0) ?
+    strcpy(Moutput, (strcmp(CurrentTXMode, "S2QPSK") == 0) ?
            "DATV Express DVB-S2" : "DATV Express DVB-S");
     strcpy(CurrentModeOPtext, TabModeOPtext[2]);
   } 
@@ -8660,9 +8661,9 @@ void ApplyTXConfig()
   }
   else if (strcmp(CurrentSource, "SRT") == 0)
   {
-    // Preserve the selected SRT source and H.264 encoder label.
+    // SRT carries MPEG-TS; selected modulation determines the output codec.
     strcpy(ModeInput, "SRT");
-    strcpy(CurrentEncoding, "H264");
+    strcpy(CurrentEncoding, strcmp(CurrentTXMode, "DVB-S") == 0 ? "MPEG-2" : "H264");
     SetConfigParam(PATH_PCONFIG, "encoding", CurrentEncoding);
   }
   else if ((strcmp(CurrentModeOP, "DATVEXPRESS") == 0 ||
@@ -9058,8 +9059,7 @@ void EnforceValidTXMode()
 {
   char Param[15]="modulation";
 
-  if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0 ||
-      (strcmp(CurrentModeOP, "DATVEXPRESS") == 0 && strcmp(CurrentSource, "SRT") == 0))
+  if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0)
   {
     // Raw-16 experimental backend currently implements QPSK only.
     if (strcmp(CurrentTXMode, TabTXMode[2]) != 0)
@@ -9072,14 +9072,14 @@ void EnforceValidTXMode()
 
   if (strcmp(CurrentModeOP, "DATVEXPRESS") == 0)
   {
-    // The original Express output retains DVB-S and adds only S2 QPSK.
-    // SRT is intentionally S2-only; other live sources may select either.
+    // The original Express output supports DVB-S and experimental S2 QPSK,
+    // including when SRT is selected as the live source.
     if (strcmp(CurrentTXMode, TabTXMode[2]) != 0 &&
-        (strcmp(CurrentSource, "SRT") == 0 ||
-         (strcmp(CurrentTXMode, TabTXMode[0]) != 0 &&
-          strcmp(CurrentTXMode, TabTXMode[1]) != 0)))
+        strcmp(CurrentTXMode, TabTXMode[0]) != 0 &&
+        (strcmp(CurrentTXMode, TabTXMode[1]) != 0 ||
+         strcmp(CurrentSource, "SRT") == 0))
     {
-      strcpy(CurrentTXMode, strcmp(CurrentSource, "SRT") == 0 ? TabTXMode[2] : TabTXMode[0]);
+      strcpy(CurrentTXMode, TabTXMode[0]);
       SetConfigParam(PATH_PCONFIG, Param, CurrentTXMode);
     }
     return;
@@ -10258,8 +10258,7 @@ void GreyOutReset49()
 
 void GreyOut49()
 {
-  if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0 ||
-      (strcmp(CurrentModeOP, "DATVEXPRESS") == 0 && strcmp(CurrentSource, "SRT") == 0))
+  if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0)
   {
     // The new backend implements DVB-S2 QPSK only. Keep the selected mode
     // available in the modulation menu and hide every unsupported mode.
@@ -10281,7 +10280,7 @@ void GreyOut49()
     SetButtonStatus(ButtonNumber(CurrentMenu, 12), 2);
     if (strcmp(CurrentSource, "SRT") == 0)
     {
-      SetButtonStatus(ButtonNumber(CurrentMenu, 5), 2);
+      // Carrier is not a video mode; DVB-S and S2 QPSK stay selectable.
       SetButtonStatus(ButtonNumber(CurrentMenu, 6), 2);
     }
     return;

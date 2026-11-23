@@ -1,13 +1,14 @@
-# Experimental SRT-interlocked DATV-Express DVB-S2 TX
+# Experimental SRT-interlocked DATV-Express DVB-S and DVB-S2 TX
 
-The touchscreen has **Output Device → Express S2**. The original **Express**
-selection now also routes **Source → SRT** to the same experimental DVB-S2
-QPSK backend. Selected local sources can use DVB-S through the legacy server
+The touchscreen has **Output Device → Express S2**. With **Source → SRT**,
+the original **Express** output accepts **DVB-S** as well as experimental
+**S2 QPSK**; the separate **Express S2** output remains S2-only. Selected local
+sources can use DVB-S through the legacy server
 or experimental S2 QPSK through the raw-16 backend via
 `express_capture_tx.py`; see [mode scope](trixie-mode-porting-scope.md). Select
-**Source → SRT**, **Modulation → S2 QPSK**, a DVB-S2 FEC, symbol rate,
-frequency, and output format. Pressing TX
-**arms** an SRT listener on UDP 9000. It does not assert PTT while waiting.
+**Source → SRT**, an Express output, **DVB-S** or **S2 QPSK**, matching FEC,
+symbol rate, frequency, and output format. Pressing TX **arms** an SRT
+listener on UDP 9000 (`srtinport` in the config). It does not assert PTT while waiting.
 The transmitter backend starts only after the live, rate-shaped TS has PAT,
 PMT, at least 30 video packets, and 500 TS packets. A disconnect, invalid TS,
 or two-second video-packet stall stops the backend. The backend also has a
@@ -15,14 +16,20 @@ two-second input timeout in its hardware transmit mode. The GUI resets its
 armed TX indication when the supervisor exits. No saved TS or test card is
 used as RF fallback.
 
-The first integrated path supports **DATV-Express raw-16, DVB-S2 QPSK, normal
+The DVB-S route transcodes incoming MPEG-TS video/audio to rate-shaped
+**720×480 MPEG-2/MP2** and uses the legacy Express server behind a live-video
+gate. On loss, it returns PTT to RX and remains armed for a new live source.
+Its OBS return is `http://<Portsdown-Pi>:9015/return.ts`: **NO IP INPUT**
+bars at rest, low-resolution live video when valid, then bars on loss.
+It is a confidence preview, not a received RF signal.
+
+The S2 route supports **DATV-Express raw-16, DVB-S2 QPSK, normal
 frames, pilots off, 35% rolloff**, with GUI FEC selection. SRT video is
 transcoded to H.264/AAC and a TS mux rate below the selected DVB-S2 capacity.
 Other output devices and modulation modes are not silently substituted. On
 the original `DATVEXPRESS` selection, the supervisor stops an already-running
 legacy DVB-S server before the raw-16 backend can open the board; it refuses
-to arm if the server cannot be released. The legacy DVB-S route remains for
-non-SRT sources. On a Portsdown installation,
+to arm if the server cannot be released. On a Portsdown installation,
 build/install both `src/gui/rpidatvgui` and `src/express_s2/express_s2`, then
 install the changed scripts under `/home/pi/rpidatv/scripts/`; the GUI uses
 those absolute paths. Do **not** run the old Buster installer on Trixie.
@@ -50,6 +57,15 @@ flow must produce `SRT TX stopped`. The existing preview cycle also listens
 on 9000; stop it before running this TX path on the normal port. This TX
 supervisor does not yet switch TANK's low-resolution return service.
 
+For a DVB-S dry run, use `modeoutput=DATVEXPRESS`, `modulation=DVB-S`, and a
+DVB-S FEC (for example `fec=1`). Run
+`python3 scripts/ipts_interlocked_tx.py --config /path/to/test-config.txt
+--input-port 19001 --dry-run --no-preview`. The SRT caller must still send
+MPEG-TS, but its source video may be H.264; the DVB-S route converts it to
+MPEG-2/MP2 before the gate. This is a separate live TX supervisor, not the
+bounded `srt_datv_ts_listener.py` file-preparation tool. Only one listener
+can own a given SRT port.
+
 ## Verification and remaining hardware work
 
 On TANK (AArch64 Debian Trixie Pi 4), a **fresh clone of the published
@@ -60,7 +76,10 @@ A synthetic SRT source in `--dry-run`
 confirmed no backend before video, backend start after valid TS, and stop
 after both source disconnect and an open-but-stalled sender. TANK has no
 DATV-Express board, touchscreen, or `/dev/fb0`; its rover service remained
-active. Thus the physical touchscreen, built-in `/touchscreen/` Web Control,
+active. The newer Source=SRT DVB-S route passed a bounded H.264/AAC SRT →
+MPEG-2/MP2 720×480 dry run, including delayed start, disconnect, and a
+second burst. It has **not** had a new native TANK GUI build or board test.
+Thus the physical touchscreen, built-in `/touchscreen/` Web Control,
 USB firmware/transfer, PTT/RF off timing, decoded receive, and 720p/1080p
 live encoding are **not yet verified**. Use a dummy load or attenuated
 receiver for the first board test. The stock Web Control mirrors an 800×480

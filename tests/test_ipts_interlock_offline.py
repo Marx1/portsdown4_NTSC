@@ -27,10 +27,10 @@ class IPTSInterlockOfflineTest(unittest.TestCase):
         self.path = Path(self.temp.name)
         self.port = free_port()
 
-    def config(self, transport, s2):
+    def config(self, transport, s2, source="IPTSIN"):
         path = self.path / "config"
         path.write_text(
-            "modeinput=IPTSIN\n"
+            f"modeinput={source}\n"
             f"modeoutput={'DATVEXPRESS_S2' if s2 else 'DATVEXPRESS'}\n"
             f"modulation={'S2QPSK' if s2 else 'DVB-S'}\n"
             f"fec={'12' if s2 else '1'}\n"
@@ -57,8 +57,8 @@ class IPTSInterlockOfflineTest(unittest.TestCase):
             time.sleep(0.2)
         self.fail(f"expected {count} occurrences of {needle!r}: {content}")
 
-    def exercise(self, transport, s2):
-        config = self.config(transport, s2)
+    def exercise(self, transport, s2, source="IPTSIN"):
+        config = self.config(transport, s2, source)
         backend = self.path / "express_s2" / "fake_backend"
         if s2:
             backend.parent.mkdir()
@@ -70,9 +70,10 @@ class IPTSInterlockOfflineTest(unittest.TestCase):
                 "while sys.stdin.buffer.read(188): pass\n"
             )
             backend.chmod(0o755)
+        preview_port = free_port()
         command = ["python3", "-B", str(SUPERVISOR), "--config", str(config),
                    "--pid-file", str(self.path / "pid"), "--dry-run", "--no-preview",
-                   "--preview-udp-port", str(free_port())]
+                   "--preview-udp-port", str(preview_port), "--input-port", str(self.port)]
         if s2:
             command += ["--backend", str(backend)]
         with (self.path / "log").open("w") as log:
@@ -94,15 +95,27 @@ class IPTSInterlockOfflineTest(unittest.TestCase):
                            else f"udp://127.0.0.1:{self.port}?pkt_size=1316")
                     sender = subprocess.Popen(
                         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-re", "-f", "lavfi",
-                         "-i", "testsrc2=size=320x240:rate=15", "-c:v", "libx264", "-preset",
+                         "-i", "testsrc2=size=320x240:rate=15", "-re", "-f", "lavfi",
+                         "-i", "sine=frequency=1000:sample_rate=48000", "-c:v", "libx264", "-preset",
                          "ultrafast", "-b:v", "250k", "-g", "15", "-x264-params",
-                         "repeat-headers=1", "-f", "mpegts", url],
+                         "repeat-headers=1", "-c:a", "aac", "-b:a", "48k", "-f", "mpegts", url],
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                     )
                     try:
                         self.wait_log_count("Valid IPTS video", burst, timeout=10)
                         if s2:
                             self.wait_log_count("FAKE BACKEND STARTED", burst)
+                        if source == "SRT" and burst == 1:
+                            probe = subprocess.run(
+                                ["ffprobe", "-v", "error", "-show_entries",
+                                 "stream=codec_name,width,height", "-of", "compact",
+                                 f"udp://127.0.0.1:{preview_port}?timeout=4000000"],
+                                capture_output=True, text=True, timeout=8,
+                            )
+                            self.assertEqual(probe.returncode, 0, probe.stderr)
+                            self.assertIn("codec_name=mpeg2video", probe.stdout)
+                            self.assertIn("width=720|height=480", probe.stdout)
+                            self.assertIn("codec_name=mp2", probe.stdout)
                     finally:
                         sender.terminate()
                         sender.wait(timeout=5)
@@ -117,6 +130,9 @@ class IPTSInterlockOfflineTest(unittest.TestCase):
 
     def test_srt_dvbs2_gate_and_disconnect(self):
         self.exercise("srt", True)
+
+    def test_srt_dvbs_transcodes_to_mpeg2_and_stops(self):
+        self.exercise("srt", False, source="SRT")
 
     def test_unsupported_rf_output_is_blocked(self):
         config = self.config("udp", False)

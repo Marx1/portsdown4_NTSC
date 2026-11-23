@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed UDP/SRT IPTS input for DATV-Express DVB-S or S2 QPSK.
+"""Fail-closed UDP/SRT IPTS or SRT→DVB-S input for DATV-Express.
 
 Only live, FFmpeg-parsed video TS can start a board. On loss, unkey at once,
 show the preview card, and re-arm for the next live input. Other legacy IPTS
@@ -31,11 +31,13 @@ def request_stop(_signum, _frame):
     STOP = True
 
 
-def input_command(cfg, muxrate, pmt_pid, video_pid):
-    port = int(cfg.get("udpinport", "10000"))
+def input_command(cfg, muxrate, pmt_pid, video_pid, input_port=None):
+    srt_dvbs = cfg.get("modeinput") == "SRT"
+    port = int(input_port if input_port is not None else cfg.get(
+        "srtinport" if srt_dvbs else "udpinport", "9000" if srt_dvbs else "10000"))
     if not 1024 <= port <= 65535:
         raise ValueError("invalid TS input port")
-    transport = cfg.get("iptransport", "udp")
+    transport = "srt" if srt_dvbs else cfg.get("iptransport", "udp")
     if transport == "srt":
         url = f"srt://0.0.0.0:{port}?mode=listener&transtype=live&latency=200000"
     elif transport == "udp":
@@ -46,11 +48,27 @@ def input_command(cfg, muxrate, pmt_pid, video_pid):
         url = f"udp://0.0.0.0:{port}?fifo_size=1000000&overrun_nonfatal=1"
     else:
         raise ValueError("IP TS transport must be udp or srt")
-    # Probing the incoming MPEG-TS is important: -map 0:v:0 fails when there
-    # is no decodable video stream. The *output* is a fresh, bounded-rate TS.
+    # Probing incoming MPEG-TS is important: -map 0:v:0 fails when no video
+    # stream is found. Source=SRT DVB-S converts any supported source codec
+    # to a bounded MPEG-2/MP2 480p profile; IPTS input remains stream-copy.
     command = ["ffmpeg", "-hide_banner", "-loglevel", "warning", "-nostats", "-nostdin",
                "-fflags", "+genpts", "-probesize", "1000000", "-analyzeduration", "1000000",
-               "-i", url, "-map", "0:v:0", "-map", "0:a:0?", "-c", "copy",
+               "-i", url, "-map", "0:v:0", "-map", "0:a:0?"]
+    if srt_dvbs:
+        video_rate = (muxrate - 128000 - 40000) * 85 // 100 // 1000 * 1000
+        if video_rate < 100000:
+            raise ValueError("symbol rate/FEC leaves insufficient MPEG-2 video bitrate")
+        # Letterbox/pillarbox in square pixels first. Scaling directly into
+        # 720x480 before setting 32:27 SAR would distort a 16:9 input.
+        command += ["-vf", "fps=24000/1001,scale=854:480:force_original_aspect_ratio=decrease,"
+                    "pad=854:480:(ow-iw)/2:(oh-ih)/2,scale=720:480,setsar=32/27,format=yuv420p",
+                    "-c:v", "mpeg2video", "-bf", "0", "-g", "24", "-b:v", str(video_rate),
+                    "-maxrate:v", str(video_rate + 100000),
+                    "-bufsize:v", str((video_rate + 100000) // 2),
+                    "-c:a", "mp2", "-b:a", "128000", "-ac", "2", "-ar", "48000"]
+    else:
+        command += ["-c", "copy"]
+    command += [
                "-mpegts_pmt_start_pid", str(pmt_pid), "-streamid", f"0:{video_pid}",
                "-muxrate", str(muxrate), "-muxdelay", "0", "-muxpreload", "0",
                "-f", "mpegts", "pipe:1"]
@@ -66,6 +84,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path("/home/pi/rpidatv/scripts/portsdown_config.txt"))
     parser.add_argument("--backend", type=Path, default=Path("/home/pi/rpidatv/src/express_s2/express_s2"))
+    parser.add_argument("--input-port", type=int, help="override SRT/UDP listener port for a test")
     parser.add_argument("--pid-file", type=Path, default=Path("/tmp/portsdown-srt-tx.pid"))
     parser.add_argument("--preview-bind", default="0.0.0.0")
     parser.add_argument("--preview-port", type=int, default=9015)
@@ -75,13 +94,15 @@ def main():
     args = parser.parse_args()
     try:
         cfg = config(args.config)
-        if cfg.get("modeinput") not in ("IPTSIN", "IPTSIN264", "IPTSIN265"):
-            raise ValueError("select an IPTS input source")
+        if cfg.get("modeinput") not in ("IPTSIN", "IPTSIN264", "IPTSIN265", "SRT"):
+            raise ValueError("select IPTS input or SRT source")
         if cfg.get("modeoutput") not in ("DATVEXPRESS", "DATVEXPRESS_S2"):
             raise ValueError("IPTS RF is currently supported only on DATV-Express; other outputs are blocked")
         modulation = cfg.get("modulation")
         if modulation not in ("DVB-S", "S2QPSK") or (cfg["modeoutput"] == "DATVEXPRESS_S2" and modulation != "S2QPSK"):
             raise ValueError("select Express DVB-S or experimental S2 QPSK")
+        if cfg["modeinput"] == "SRT" and modulation != "DVB-S":
+            raise ValueError("Source SRT with S2 QPSK uses srt_interlocked_tx.py")
         s2 = modulation == "S2QPSK"
         fec = (S2_FEC if s2 else S_FEC)[cfg["fec"]]
         symbol_rate = int(cfg["symbolrate"]) * 1000
@@ -102,7 +123,7 @@ def main():
         muxrate = capacity * 90 // 100 // 1000 * 1000
         if muxrate < 200000:
             raise ValueError("symbol rate/FEC leaves insufficient TS capacity")
-        command, transport, port = input_command(cfg, muxrate, pmt_pid, video_pid)
+        command, transport, port = input_command(cfg, muxrate, pmt_pid, video_pid, args.input_port)
         for value in (args.preview_port, args.preview_udp_port):
             if not 1024 <= value <= 65535 or value == port:
                 raise ValueError("invalid or conflicting preview port")

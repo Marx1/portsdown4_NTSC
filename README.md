@@ -1,7 +1,7 @@
 ![portsdown banner](/doc/img/Portsdown_4.jpg)
 # Portsdown Buster Build For RPi 4
 
-## Trixie development status (22 November 2026)
+## Trixie development status (23 November 2026)
 
 The `arm64-transmitter` branch contains work toward **two distinct targets**.
 Neither is an installable, RF-verified Trixie release. The installer and
@@ -28,8 +28,9 @@ V4L2; it selects MJPEG input for a webcam that advertises it. Device-level
 capture and RF for those paths still need testing on the intended Pi.
 
 **DVB-S2 distinction:** the legacy `express_server` is **DVB-S only**. With
-**Source: SRT**, either the original **Express** or the separate **Express S2**
-GUI output selects the experimental DVB-S2 QPSK path. The modern Express
+**Source: SRT** with the original **Express** output can select either
+interlocked **DVB-S** (MPEG-2/MP2 480p) or experimental **DVB-S2 QPSK**
+(H.264/AAC). The separate **Express S2** output is S2-only. The modern Express
 capture route also accepts Pi Cam, NTSC composite, webcam/C920, HDMI V4L2,
 and selected test cards for DVB-S or experimental DVB-S2 QPSK. Its
 [`src/express_s2` backend](src/express_s2/express_s2.cpp) generates DVB-S2 I/Q
@@ -65,7 +66,7 @@ Detailed status, build evidence, and acceptance gates:
 
 The MSE-88 OBS to TANK SRT/offline DVB-S2 test path is documented in
 [MSE-88 OBS SRT to TANK](doc/mse88-obs-srt-to-tank.md).
-The separate [Portsdown IP Output/SRT confidence link](doc/ipts-srt-link.md)
+The separate [Portsdown IP Output/SRT confidence link and TANK ingest matrix](doc/ipts-srt-link.md)
 keeps BATC Streamer RTMP/FLV intact and adds SRT as an optional live MPEG-TS
 transport to another system's IPTS Monitor. IPTS input to DATV-Express
 DVB-S or experimental DVB-S2 QPSK now has a live-video TX gate and
@@ -76,6 +77,13 @@ closed. The separate 426×240 OBS return at port 9015 displays SMPTE bars
 with **NO IP INPUT** until valid live video arrives, then switches back on
 loss. These paths passed bounded offline tests only; board/PTT/RF behavior
 and physical GUI operation still need hardware tests.
+**Source: SRT** uses port 9000 by default for either Express modulation;
+**IPTS in** uses the configured TS In IP Port (default 10000) for direct
+SRT or UDP MPEG-TS. The bounded SRT listener prepares a TS file offline and
+does not key RF. Only one listener may use a given port. A new Source:SRT →
+Express DVB-S dry run converted H.264/AAC SRT input to 720×480 MPEG-2/MP2
+TS and stopped on loss; the latest GUI revision has not yet been rebuilt on
+TANK or tested with a DATV-Express board.
 It now has bounded TS-preparation profiles for **DVB-S 2222 ksym/s,
 MPEG-2/480p** and **DVB-S2 1000 ksym/s, H.264/480p, 720p, or 1080p**,
 with selectable FEC for capacity sizing. A repeatable

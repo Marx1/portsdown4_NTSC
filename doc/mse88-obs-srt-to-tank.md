@@ -8,10 +8,12 @@ path is now available in the branch; it is not the preview/capture process.
 The Portsdown touchscreen source menu in this branch now has an **SRT** entry
 in the formerly unused second-row slot. Selecting it makes the main control
 display read **Source: SRT** and persists `modeinput=SRT` across restarts and
-presets. With **Express S2** output selected, pressing TX arms a separate live
-listener without keying RF; it starts the experimental DVB-S2 backend only
-after live video TS arrives and stops it on loss. Other SRT output selections
-fail closed. TANK built the GUI but has no framebuffer, touchscreen, or
+presets. With **Express DVB-S** or **Express DVB-S2 QPSK** selected, pressing
+TX arms a separate live listener without keying RF. DVB-S converts the SRT
+MPEG-TS to MPEG-2/MP2 480p; S2 converts it to H.264/AAC. Each route starts
+its output only after valid live video TS arrives and stops it on loss.
+Other SRT output selections fail closed. TANK built an earlier GUI revision
+but has no framebuffer, touchscreen, or
 DATV-Express board, so physical/Web Control and RF behavior still need
 testing. The preview cycle and TX listener cannot both bind port 9000.
 

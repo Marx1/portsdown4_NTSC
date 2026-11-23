@@ -55,6 +55,21 @@ same port. A manual bridge can still translate SRT to local UDP: set
 `udpinport=10001` and `iptransport=udp`, leaving the bridge listener on
 network port 10000.
 
+### TANK SRT MPEG-TS destinations
+
+| Selection | SRT listener | TS treatment | Output |
+| --- | --- | --- | --- |
+| **Source → SRT**, **Express**, **DVB-S** | `srtinport` (default **9000**) | Transcode video/audio to rate-shaped 720×480 MPEG-2/MP2 TS | Interlocked Express DVB-S; preview on HTTP 9015 |
+| **Source → SRT**, **Express** or **Express S2**, **S2 QPSK** | `srtinport` (default **9000**) | Transcode to rate-shaped H.264/AAC TS | Interlocked experimental Express DVB-S2 |
+| **Encoding → IPTS in**, **IP TS: SRT**, **Express DVB-S/S2** | `udpinport` (default **10000**) | Stream-copy/remux MPEG-TS, no video transcoding | Interlocked Express DVB-S or experimental S2; preview on HTTP 9015 |
+| **IPTS Monitor**, **IP TS: SRT** | `udpinport` (default **10000**) | SRT-to-local-UDP bridge | VLC monitor, **no RF** |
+| Bounded `srt_datv_ts_listener.py` | Usually **9000** | Make a validated DVB-S or S2 TS file | Offline preparation, **no RF** |
+
+The sender must use SRT **MPEG-TS**, not raw UDP packets or RTMP/FLV. Start
+only one listener on any given port; for example, stop the bounded OBS/TANK
+preview cycle before arming Source=SRT on port 9000. These are alternative
+routes, not simultaneous consumers of a single SRT call.
+
 ### Interlocked IPTS input to Express RF (experimental)
 
 **Encoding → IPTS in / IPTS in H264 / IPTS in H265** now bypasses the old
@@ -76,7 +91,7 @@ instead of falling into the pre-key legacy path. They need individual
 interlocked ports before they can be used with IPTS input again. IPTS input
 paired with IP Output/Streamer is also not a supported TX combination yet;
 the separate IPTS Monitor and IP Output sender remain available. The current
-path remuxes/copies video and optional audio, requesting a TS mux rate at
+IPTS-in path remuxes/copies video and optional audio, requesting a TS mux rate at
 90% of the selected symbol-rate/FEC capacity; it neither validates input
 bitrate nor transcodes oversized inputs. Supply a
 source bitrate below that capacity and a regular keyframe with repeated
@@ -112,7 +127,9 @@ stopping input dropped the gate. An SRT dry-run with a fake DVB-S2 backend
 also started only after video and stopped the backend on sender disconnect.
 The automated offline test leaves each listener idle for five seconds, then
 sends two separate bursts; both UDP and SRT detected both starts and stopped
-the dry-run backend after each loss. Run it with
+the dry-run backend after each loss. Source=SRT → Express DVB-S also passed a
+bounded H.264/AAC SRT input → MPEG-2/MP2 720×480 TS dry run, including a
+second source burst after loss. Run the automated checks with
 `python3 -B tests/test_ipts_interlock_offline.py -v`.
 The preview card rendered correctly; a continuous HTTP TS capture decoded
 card → live → card, without changing the OBS URL. These are **software-only**

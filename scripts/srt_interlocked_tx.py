@@ -101,14 +101,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path("/home/pi/rpidatv/scripts/portsdown_config.txt"))
     parser.add_argument("--backend", type=Path, default=Path("/home/pi/rpidatv/src/express_s2/express_s2"))
-    parser.add_argument("--port", type=int, default=9000)
+    parser.add_argument("--port", type=int, help="SRT listener port (default: srtinport or 9000)")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--pid-file", type=Path, default=Path("/tmp/portsdown-srt-tx.pid"))
     args = parser.parse_args()
-    if not 1024 <= args.port <= 65535:
-        parser.error("invalid SRT port")
     try:
         cfg = config(args.config)
+        args.port = args.port if args.port is not None else int(cfg.get("srtinport", "9000"))
+        if not 1024 <= args.port <= 65535:
+            parser.error("invalid SRT port")
         if (cfg.get("modeinput") != "SRT" or
                 cfg.get("modeoutput") not in ("DATVEXPRESS", "DATVEXPRESS_S2") or
                 cfg.get("modulation") != "S2QPSK"):
