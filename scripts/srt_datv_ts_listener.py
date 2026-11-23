@@ -26,6 +26,8 @@ def main():
     parser.add_argument("--symbol-rate", type=int, help="symbols/s; default 2222000 (S) or 1000000 (S2)")
     parser.add_argument("--port", type=int, default=9000)
     parser.add_argument("--duration", type=int, default=30)
+    parser.add_argument("--startup-grace", type=int, default=300,
+                        help="extra seconds allowed for a caller to connect (default: 300)")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--input-file", type=Path,
                         help="transcode an existing capture instead of listening on SRT")
@@ -42,8 +44,9 @@ def main():
     symbol_rate = args.symbol_rate or (2222000 if args.mode == "dvbs" else 1000000)
     if not 100000 <= symbol_rate <= 10000000:
         parser.error("symbol rate must be 100000-10000000 symbols/s")
-    if not 1024 <= args.port <= 65535 or not 1 <= args.duration <= 3600:
-        parser.error("port must be 1024-65535 and duration must be 1-3600 s")
+    if (not 1024 <= args.port <= 65535 or not 1 <= args.duration <= 3600
+            or not 0 <= args.startup_grace <= 3600):
+        parser.error("port must be 1024-65535, duration 1-3600 s, and startup grace 0-3600 s")
     if args.output.exists():
         parser.error(f"output already exists: {args.output}")
     if not args.output.parent.is_dir():
@@ -111,13 +114,14 @@ def main():
         print(f"Listening on SRT port {args.port}; retaining ingest at {ingest_file}", flush=True)
         try:
             received = subprocess.run(capture, capture_output=True, text=True,
-                                      timeout=args.duration + 30)
+                                      timeout=args.duration + args.startup_grace + 30)
         except subprocess.TimeoutExpired:
-            print("SRT capture timed out", file=sys.stderr)
-            return 1
-        if received.stderr:
+            print("SRT capture timed out; checking retained partial ingest", file=sys.stderr)
+            received = None
+        if received and received.stderr:
             print(received.stderr, file=sys.stderr, end="")
-        if received.returncode or not ingest_file.is_file() or ingest_file.stat().st_size < 18800:
+        if ((received is not None and received.returncode) or not ingest_file.is_file()
+                or ingest_file.stat().st_size < 18800):
             print("SRT capture failed or received too little data", file=sys.stderr)
             return 1
 
