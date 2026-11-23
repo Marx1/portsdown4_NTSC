@@ -69,7 +69,9 @@ The separate [Portsdown IP Output/SRT confidence link](doc/ipts-srt-link.md)
 keeps BATC Streamer RTMP/FLV intact and adds SRT as an optional live MPEG-TS
 transport to another system's IPTS Monitor. IPTS input to DATV-Express
 DVB-S or experimental DVB-S2 QPSK now has a live-video TX gate and
-loss-triggered RF stop for raw UDP or SRT TS. Other IPTS RF outputs fail
+loss-triggered RF stop for raw UDP or SRT TS. The armed UDP listener stays
+bound while idle, so a source can begin later without keying RF prematurely.
+Other IPTS RF outputs fail
 closed. The separate 426×240 OBS return at port 9015 displays SMPTE bars
 with **NO IP INPUT** until valid live video arrives, then switches back on
 loss. These paths passed bounded offline tests only; board/PTT/RF behavior

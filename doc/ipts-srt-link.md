@@ -63,7 +63,10 @@ The new `ipts_interlocked_tx.py` waits for a live FFmpeg-probed video stream,
 fresh PAT/PMT, at least 30 video packets and three video PES starts before
 it starts **DATV-Express DVB-S** or the experimental **Express DVB-S2 QPSK**
 backend. SRT is listened to directly on `udpinport`; raw UDP TS is also
-accepted there. When video packets cease for two seconds, or the sender
+accepted there. Pressing TX with no source **arms a persistent listener but
+does not key RF**. In particular, the UDP socket stays bound while silent;
+the sender can begin later without aiming at a narrow reconnect window.
+When video packets cease for two seconds, or the sender
 disconnects, it releases DVB-S PTT or stops the DVB-S2 backend. It remains
 armed with RF off and waits for a *new live* source; pressing Stop ends the
 supervisor. It never sends the preview card or a saved TS to RF.
@@ -107,6 +110,10 @@ remain unverified. The new IPTS RF gate was tested in DVB-S dry-run with
 UDP TS: no input kept RF off, live synthetic H.264 TS passed the gate, and
 stopping input dropped the gate. An SRT dry-run with a fake DVB-S2 backend
 also started only after video and stopped the backend on sender disconnect.
+The automated offline test leaves each listener idle for five seconds, then
+sends two separate bursts; both UDP and SRT detected both starts and stopped
+the dry-run backend after each loss. Run it with
+`python3 -B tests/test_ipts_interlock_offline.py -v`.
 The preview card rendered correctly; a continuous HTTP TS capture decoded
 card → live → card, without changing the OBS URL. These are **software-only**
 checks: USB, PTT off timing, RF, GUI runtime, two-Pi network, and receiver

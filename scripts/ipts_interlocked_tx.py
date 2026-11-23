@@ -39,7 +39,11 @@ def input_command(cfg, muxrate, pmt_pid, video_pid):
     if transport == "srt":
         url = f"srt://0.0.0.0:{port}?mode=listener&transtype=live&latency=200000"
     elif transport == "udp":
-        url = f"udp://0.0.0.0:{port}?fifo_size=1000000&overrun_nonfatal=1&timeout=2000000"
+        # Keep the UDP socket open while armed, even after hours of silence.
+        # A read timeout would close/rebind the port repeatedly and could miss
+        # a sender's first PAT/PMT or keyframe. Once TX is active, the video
+        # watchdog below stops the encoder/backend on a two-second stall.
+        url = f"udp://0.0.0.0:{port}?fifo_size=1000000&overrun_nonfatal=1"
     else:
         raise ValueError("IP TS transport must be udp or srt")
     # Probing the incoming MPEG-TS is important: -map 0:v:0 fails when there

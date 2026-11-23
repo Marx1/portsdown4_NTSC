@@ -48,6 +48,15 @@ class IPTSInterlockOfflineTest(unittest.TestCase):
             time.sleep(0.2)
         self.fail(f"missing {needle!r} in supervisor log: {content}")
 
+    def wait_log_count(self, needle, count, timeout=8):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            content = (self.path / "log").read_text()
+            if content.count(needle) >= count:
+                return content
+            time.sleep(0.2)
+        self.fail(f"expected {count} occurrences of {needle!r}: {content}")
+
     def exercise(self, transport, s2):
         config = self.config(transport, s2)
         backend = self.path / "express_s2" / "fake_backend"
@@ -71,25 +80,34 @@ class IPTSInterlockOfflineTest(unittest.TestCase):
             try:
                 self.wait_log("RF off until valid live video TS")
                 self.assertNotIn("Valid IPTS video", (self.path / "log").read_text())
-                time.sleep(0.5)  # let FFmpeg bind the SRT/UDP input socket
-                url = (f"srt://127.0.0.1:{self.port}?mode=caller&latency=200000" if transport == "srt"
-                       else f"udp://127.0.0.1:{self.port}?pkt_size=1316")
-                sender = subprocess.Popen(
-                    ["ffmpeg", "-hide_banner", "-loglevel", "error", "-re", "-f", "lavfi",
-                     "-i", "testsrc2=size=320x240:rate=15", "-c:v", "libx264", "-preset",
-                     "ultrafast", "-b:v", "250k", "-g", "15", "-x264-params",
-                     "repeat-headers=1", "-f", "mpegts", url],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                )
-                try:
-                    self.wait_log("Valid IPTS video", timeout=10)
-                    if s2:
-                        self.wait_log("FAKE BACKEND STARTED")
-                finally:
-                    sender.terminate()
-                    sender.wait(timeout=5)
-                self.wait_log("IPTS RF stopped; waiting for new live input", timeout=7)
-                self.assertIsNone(supervisor.poll(), "supervisor should remain armed, RF off")
+                # Start after the old UDP two-second timeout would have
+                # expired several times. The armed socket must still be live.
+                time.sleep(5)
+                self.assertIsNone(supervisor.poll())
+                self.assertEqual((self.path / "log").read_text().count(
+                    "RF off until valid live video TS"), 1)
+                for burst in (1, 2):
+                    if burst == 2:
+                        time.sleep(3)
+                        self.assertIsNone(supervisor.poll(), "re-armed supervisor exited")
+                    url = (f"srt://127.0.0.1:{self.port}?mode=caller&latency=200000" if transport == "srt"
+                           else f"udp://127.0.0.1:{self.port}?pkt_size=1316")
+                    sender = subprocess.Popen(
+                        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-re", "-f", "lavfi",
+                         "-i", "testsrc2=size=320x240:rate=15", "-c:v", "libx264", "-preset",
+                         "ultrafast", "-b:v", "250k", "-g", "15", "-x264-params",
+                         "repeat-headers=1", "-f", "mpegts", url],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    )
+                    try:
+                        self.wait_log_count("Valid IPTS video", burst, timeout=10)
+                        if s2:
+                            self.wait_log_count("FAKE BACKEND STARTED", burst)
+                    finally:
+                        sender.terminate()
+                        sender.wait(timeout=5)
+                    self.wait_log_count("IPTS RF stopped; waiting for new live input", burst, timeout=7)
+                    self.assertIsNone(supervisor.poll(), "supervisor should remain armed, RF off")
             finally:
                 supervisor.send_signal(signal.SIGTERM)
                 supervisor.wait(timeout=8)
