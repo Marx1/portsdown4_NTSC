@@ -41,6 +41,9 @@ Detailed status, build evidence, and acceptance gates:
 [64-bit transmitter and DATV-Express DVB-S2](doc/arm64-transmitter.md), and
 [SRT ingest](doc/srt-express-ingest.md).
 
+The MSE-88 OBS to TANK SRT/offline DVB-S2 test path is documented in
+[MSE-88 OBS SRT to TANK](doc/mse88-obs-srt-to-tank.md).
+
 For a fresh 32-bit Trixie Pi, use the
 [isolated first-run and C920 MJPEG test](doc/trixie-32bit-first-run.md). This is
 not a full Portsdown installer.
