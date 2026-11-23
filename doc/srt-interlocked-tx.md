@@ -1,8 +1,10 @@
 # Experimental SRT-interlocked DATV-Express DVB-S2 TX
 
-The touchscreen now has **Output Device → Express S2** (separate from the
-working **Express** DVB-S mode). Select **Source → SRT**, **Modulation → S2
-QPSK**, a DVB-S2 FEC, symbol rate, frequency, and output format. Pressing TX
+The touchscreen has **Output Device → Express S2**. The original **Express**
+selection now also routes **Source → SRT** to the same experimental DVB-S2
+QPSK backend; its other sources still use the legacy DVB-S server. Select
+**Source → SRT**, **Modulation → S2 QPSK**, a DVB-S2 FEC, symbol rate,
+frequency, and output format. Pressing TX
 **arms** an SRT listener on UDP 9000. It does not assert PTT while waiting.
 The transmitter backend starts only after the live, rate-shaped TS has PAT,
 PMT, at least 30 video packets, and 500 TS packets. A disconnect, invalid TS,
@@ -14,8 +16,11 @@ used as RF fallback.
 The first integrated path supports **DATV-Express raw-16, DVB-S2 QPSK, normal
 frames, pilots off, 35% rolloff**, with GUI FEC selection. SRT video is
 transcoded to H.264/AAC and a TS mux rate below the selected DVB-S2 capacity.
-Other output devices and modulation modes are not silently substituted. The
-legacy `DATVEXPRESS` DVB-S mode is unchanged. On a Portsdown installation,
+Other output devices and modulation modes are not silently substituted. On
+the original `DATVEXPRESS` selection, the supervisor stops an already-running
+legacy DVB-S server before the raw-16 backend can open the board; it refuses
+to arm if the server cannot be released. The legacy DVB-S route remains for
+non-SRT sources. On a Portsdown installation,
 build/install both `src/gui/rpidatvgui` and `src/express_s2/express_s2`, then
 install the changed scripts under `/home/pi/rpidatv/scripts/`; the GUI uses
 those absolute paths. Do **not** run the old Buster installer on Trixie.
@@ -24,7 +29,8 @@ those absolute paths. Do **not** run the old Buster installer on Trixie.
 
 Use `--dry-run` and a separate port to exercise the source gate **without
 opening the board or keying RF**. The config file must contain
-`modeinput=SRT`, `modeoutput=DATVEXPRESS_S2`, `modulation=S2QPSK`, `fec=12`,
+`modeinput=SRT`, `modeoutput=DATVEXPRESS` (or `DATVEXPRESS_S2`),
+`modulation=S2QPSK`, `fec=12`,
 `symbolrate=1000`, `freqoutput=437`, and `format=16:9` (other supported values
 may be substituted). For example:
 

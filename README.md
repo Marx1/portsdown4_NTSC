@@ -27,9 +27,10 @@ The same capture helper also handles NTSC EasyCap and webcam MPEG-2 through
 V4L2; it selects MJPEG input for a webcam that advertises it. Device-level
 capture and RF for those paths still need testing on the intended Pi.
 
-**DVB-S2 distinction:** the existing Portsdown `DATVEXPRESS` GUI mode and
-`express_server` are **DVB-S only**. The new **Express S2** GUI output is a
-separate experimental QPSK path, currently requiring **Source: SRT**. Its
+**DVB-S2 distinction:** the legacy `express_server` is **DVB-S only**. With
+**Source: SRT**, either the original **Express** or the separate **Express S2**
+GUI output now selects the experimental DVB-S2 QPSK path. Other sources on
+the original Express output continue to use DVB-S. Its
 [`src/express_s2` backend](src/express_s2/express_s2.cpp) generates DVB-S2 I/Q
 and uses raw-16 USB, but has not been tested with a board. Neither 32-bit nor
 64-bit Portsdown has verified DVB-S2 transmission through DATV-Express.

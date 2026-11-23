@@ -2510,7 +2510,8 @@ void ReadModeOutput(char Moutput[256])
 
   if (strcmp(ModeOutput, "DATVEXPRESS") == 0) 
   {
-    strcpy(Moutput, "DATV Express DVB-S");
+    strcpy(Moutput, strcmp(CurrentSource, "SRT") == 0 ?
+           "DATV Express DVB-S2" : "DATV Express DVB-S");
     strcpy(CurrentModeOPtext, TabModeOPtext[2]);
   } 
   else if (strcmp(ModeOutput, "DATVEXPRESS_S2") == 0)
@@ -5465,7 +5466,8 @@ int DetectUSBAudio()
 void CheckExpress()
 {
   //Check if DATV Express Required
-  if (strcmp(CurrentModeOP, TabModeOP[2]) == 0)  // Startup mode is DATV Express
+  if (strcmp(CurrentModeOP, TabModeOP[2]) == 0 &&
+      strcmp(CurrentSource, "SRT") != 0)  // Legacy DVB-S server only
   {
     if (CheckExpressConnect() == 1)   // Not connected
     {
@@ -9020,7 +9022,8 @@ void EnforceValidTXMode()
 {
   char Param[15]="modulation";
 
-  if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0)
+  if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0 ||
+      (strcmp(CurrentModeOP, "DATVEXPRESS") == 0 && strcmp(CurrentSource, "SRT") == 0))
   {
     // Raw-16 experimental backend currently implements QPSK only.
     if (strcmp(CurrentTXMode, TabTXMode[2]) != 0)
@@ -10204,7 +10207,8 @@ void GreyOutReset49()
 
 void GreyOut49()
 {
-  if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0)
+  if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0 ||
+      (strcmp(CurrentModeOP, "DATVEXPRESS") == 0 && strcmp(CurrentSource, "SRT") == 0))
   {
     // The new backend implements DVB-S2 QPSK only. Keep the selected mode
     // available in the modulation menu and hide every unsupported mode.
@@ -10654,7 +10658,8 @@ void SelectOP(int NoButton)      // Output device
   strcpy(CurrentModeOPtext, TabModeOPtext[index]);
 
   // Start DATV Express if required
-  if (strcmp(CurrentModeOP, TabModeOP[2]) == 0)  // new mode is DATV Express
+  if (strcmp(CurrentModeOP, TabModeOP[2]) == 0 &&
+      strcmp(CurrentSource, "SRT") != 0)  // Legacy DVB-S server only
   {
     StartExpressServer();
   }
@@ -10701,6 +10706,13 @@ void SelectSource(int NoButton)  // Video Source
     SetConfigParam(PATH_PCONFIG, "modeinput", "HDMI");
   } 
   ApplyTXConfig();
+  // Express uses the existing DVB-S server for other sources, but SRT is
+  // routed to the interlocked raw-16 DVB-S2 backend.
+  char selected_fec[16] = "";
+  GetConfigParam(PATH_PCONFIG, "fec", selected_fec);
+  fec = atoi(selected_fec);
+  EnforceValidTXMode();
+  EnforceValidFEC();
   printf("Current Source afer ApplyTXConfig in SelectSource is %s\n",  CurrentSource);
 }
 
@@ -12176,6 +12188,9 @@ void RecallPreset(int PresetButton)
   GetConfigParam(PATH_PPRESETS, Param, Value);
   SetConfigParam(PATH_PCONFIG, "fec", Value);
   fec = atoi(Value);
+  SetConfigParam(PATH_PCONFIG, "modulation", CurrentTXMode);
+  EnforceValidTXMode();
+  EnforceValidFEC();
   
   // Read Audio setting
   strcpy(Value, "");
@@ -21104,9 +21119,10 @@ void waituntil(int w,int h)
         case 20:                       // TX PTT
           if (strcmp(ModeInput, "SRT") == 0)
           {
-            if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") != 0)
+            if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") != 0 &&
+                strcmp(CurrentModeOP, "DATVEXPRESS") != 0)
             {
-              MsgBox2("SRT TX requires DATV Express S2", "Select that output first");
+              MsgBox2("SRT TX requires DATV Express", "Select Express or Express S2");
               wait_touch();
             }
             else
@@ -31523,6 +31539,15 @@ int main(int argc, char **argv)
   ReadPresets();
   ReadModeInput(vcoding, vsource);
   ReadModeOutput(vcoding);
+  if (strcmp(CurrentModeOP, "DATVEXPRESS") == 0 &&
+      strcmp(CurrentSource, "SRT") == 0)
+  {
+    char initial_fec[16] = "";
+    GetConfigParam(PATH_PCONFIG, "fec", initial_fec);
+    fec = atoi(initial_fec);
+    EnforceValidTXMode();
+    EnforceValidFEC();
+  }
   ReadModeEasyCap();
   ReadPiCamOrientation();
   ReadCaptionState();

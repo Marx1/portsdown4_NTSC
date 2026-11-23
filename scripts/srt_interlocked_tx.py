@@ -61,6 +61,27 @@ def stop_child(child):
         child.wait()
 
 
+def release_legacy_express():
+    """The DVB-S server and raw-16 DVB-S2 backend cannot own USB together."""
+    probe = subprocess.run(["pgrep", "-x", "express_server"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    if probe.returncode == 1:
+        return
+    if probe.returncode != 0:
+        raise RuntimeError("cannot check legacy DATV-Express server")
+    with open("/tmp/expctrl", "a") as control:
+        control.write("set ptt rx\nset car off\n")
+    subprocess.run(["sudo", "-n", "killall", "express_server"],
+                   check=True, timeout=5, stdout=subprocess.DEVNULL)
+    for _ in range(30):
+        if subprocess.run(["pgrep", "-x", "express_server"],
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                          check=False).returncode == 1:
+            return
+        time.sleep(0.1)
+    raise RuntimeError("legacy DATV-Express server still owns USB")
+
+
 def write_packet(child, packet):
     sent = 0
     deadline = time.monotonic() + 2
@@ -88,8 +109,10 @@ def main():
         parser.error("invalid SRT port")
     try:
         cfg = config(args.config)
-        if cfg.get("modeinput") != "SRT" or cfg.get("modeoutput") != "DATVEXPRESS_S2" or cfg.get("modulation") != "S2QPSK":
-            parser.error("SRT TX requires Source SRT, DATV Express S2, and S2 QPSK")
+        if (cfg.get("modeinput") != "SRT" or
+                cfg.get("modeoutput") not in ("DATVEXPRESS", "DATVEXPRESS_S2") or
+                cfg.get("modulation") != "S2QPSK"):
+            parser.error("SRT TX requires Source SRT, DATV Express, and S2 QPSK")
         fec = FEC[cfg["fec"]]
         symbol_rate = int(cfg["symbolrate"]) * 1000
         frequency = round(float(cfg["freqoutput"]) * 1000000)
@@ -108,6 +131,12 @@ def main():
     video_rate = (muxrate - 48000 - 40000) * 55 // 100 // 1000 * 1000
     if video_rate < 100000:
         parser.error("FEC/symbol rate leaves insufficient video bitrate")
+
+    if not args.dry_run:
+        try:
+            release_legacy_express()
+        except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
+            parser.error(f"cannot release legacy DATV-Express board: {exc}")
 
     signal.signal(signal.SIGTERM, request_stop)
     signal.signal(signal.SIGINT, request_stop)
