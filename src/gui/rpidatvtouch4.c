@@ -189,7 +189,6 @@ char TabFreq[9][255]={"71", "146.5", "437", "1249", "1255", "436", "436.5", "437
 char FreqLabel[31][255];
 char TabPresetLabel[4][15]={"-", "-", "-", "-"};
 char TabModeAudio[6][15]={"auto", "mic", "video", "bleeps", "no_audio", "webcam"};
-char TabModeSTD[2][7]={"6","0"};
 char TabModeVidIP[2][7]={"0","1"};
 char TabModeOP[15][31]={"IQ", "QPSKRF", "DATVEXPRESS", "LIMEUSB", "STREAMER", "COMPVID", \
   "LIBRESDR", "IP", "LIMEMINI", "JLIME", "JSTREAM", "MUNTJAC", "LIMEDVB", "PLUTO", "DATVEXPRESS_S2"};
@@ -11035,15 +11034,14 @@ void ChangeTestCard(int NoButton)  // Change Test Card Selection
   }  
 }
 
-void SelectSTD(int NoButton)  // PAL or NTSC
+void SelectSTD(int NoButton)  // EasyCap is NTSC-only in this fork
 {
   char USBVidDevice[256];
-  char Param[255];
   char SetStandard[255];
-  SelectInGroupOnMenu(CurrentMenu, 8, 9, NoButton, 1);
-  strcpy(ModeSTD, TabModeSTD[NoButton - 8]);
-  strcpy(Param, "analogcamstandard");
-  SetConfigParam(PATH_PCONFIG, Param, ModeSTD);
+  if (NoButton != 9) return;
+  SelectInGroupOnMenu(CurrentMenu, 9, 9, 9, 1);
+  strcpy(ModeSTD, "0");
+  SetConfigParam(PATH_PCONFIG, "analogcamstandard", ModeSTD);
 
   // Now Set the Analog Capture (input) Standard
   GetUSBVidDev(USBVidDevice);
@@ -11052,8 +11050,7 @@ void SelectSTD(int NoButton)  // PAL or NTSC
     USBVidDevice[strcspn(USBVidDevice, "\n")] = 0;  //remove the newline
     strcpy(SetStandard, "v4l2-ctl -d ");
     strcat(SetStandard, USBVidDevice);
-    strcat(SetStandard, " --set-standard=");
-    strcat(SetStandard, ModeSTD);
+    strcat(SetStandard, " --set-standard=ntsc");
     printf("Video Standard set with command %s\n", SetStandard);
     system(SetStandard);
   }
@@ -23117,10 +23114,6 @@ void waituntil(int w,int h)
           SelectVidIP(i);
           printf("EasyCap S-Video\n");
           break;
-         case 8:                               // PAL
-          SelectSTD(i);
-          printf("EasyCap PAL\n");
-          break;
         case 9:                               // NTSC
           SelectSTD(i);
           printf("EasyCap NTSC\n");
@@ -28407,10 +28400,6 @@ void Define_Menu21()
   AddButtonStatus(button,"S-Video",&Blue);
   AddButtonStatus(button,"S-Video",&Green);
 
-  button = CreateButton(21, 8);
-  AddButtonStatus(button," PAL ",&Blue);
-  AddButtonStatus(button," PAL ",&Green);
-
   button = CreateButton(21, 9);
   AddButtonStatus(button," NTSC ",&Blue);
   AddButtonStatus(button," NTSC ",&Green);
@@ -28428,14 +28417,7 @@ void Start_Highlights_Menu21()
   {
     SelectInGroupOnMenu(21, 5, 6, 6, 1);
   }
-  if (strcmp(ModeSTD, "6") == 0)
-  {
-    SelectInGroupOnMenu(21, 8, 9, 8, 1);
-  }
-  else
-  {
-    SelectInGroupOnMenu(21, 8, 9, 9, 1);
-  }
+  SelectInGroupOnMenu(21, 9, 9, 9, 1);
 }
 
 void Define_Menu22()
@@ -31396,8 +31378,6 @@ int main(int argc, char **argv)
   int screenYmax, screenYmin;
   int i;
   int startupmenu = 1;
-  char Param[255];
-  char Value[255];
   char USBVidDevice[255];
   char SetStandard[255];
   char vcoding[256];
@@ -31446,17 +31426,14 @@ int main(int argc, char **argv)
   // Initialise all the spi GPIO ports to the correct state
   InitialiseGPIO();
 
-  // Set the Analog Capture (input) Standard
+  // Set the Analog Capture (input) Standard to NTSC regardless of older config.
   GetUSBVidDev(USBVidDevice);
   if (strlen(USBVidDevice) == 12)  // /dev/video* with a new line
   {
-    strcpy(Param,"analogcamstandard");
-    GetConfigParam(PATH_PCONFIG,Param,Value);
     USBVidDevice[strcspn(USBVidDevice, "\n")] = 0;  //remove the newline
     strcpy(SetStandard, "v4l2-ctl -d ");
     strcat(SetStandard, USBVidDevice);
-    strcat(SetStandard, " --set-standard=");
-    strcat(SetStandard, Value);
+    strcat(SetStandard, " --set-standard=ntsc");
     //printf(SetStandard);
     system(SetStandard);
   }

@@ -10,12 +10,18 @@ do **not** run `install_portsdown.sh` or `update.sh` on Trixie.
 
 | Target | Implemented and checked | Not yet verified |
 | --- | --- | --- |
-| Pi 4, Raspberry Pi OS Trixie Lite **32-bit (`armhf`)**, original 7-inch 800×480 display | NTSC/PAL FFmpeg MPEG-TS path for analog/webcam input, encoder selection, GUI framebuffer/touchscreen fixes, and an installer guard. Offline TS tests passed; hardware H.264 encoding was demonstrated on a separate **64-bit** Pi 4. | Boot/build on the actual 32-bit target, original display and touch, capture devices, GUI runtime, installer/update, and RF output. |
+| Pi 4, Raspberry Pi OS Trixie Lite **32-bit (`armhf`)**, original 7-inch 800×480 display | NTSC FFmpeg MPEG-TS path for analog/webcam input, encoder selection, GUI framebuffer/touchscreen fixes, and an installer guard. EasyCap is NTSC-only in this fork. Offline TS tests passed; hardware H.264 encoding was demonstrated on a separate **64-bit** Pi 4. | Boot/build on the actual 32-bit target, original display and touch, capture devices, GUI runtime, installer/update, and RF output. |
 | Pi 4, Trixie **64-bit (`arm64`)**, DATV-Express USB board | Native AArch64 `rpidatv`, DVB-T2 stack, DVB-S `express_server`, and updated touchscreen GUI builds. Experimental DVB-S2 backend generated I/Q offline. A separate SRT TX supervisor started the backend only after valid live video TS and stopped it on disconnect or packet stall in TANK dry-run tests. | Physical touchscreen/Web Control runtime, DATV-Express USB enumeration, firmware, sustained I/Q, PTT, decoded DVB-S2/RF, and actual ATEM input. TANK has no board or framebuffer; no RF was transmitted. |
 
 The current GUI and Express S2 backend also built from a **fresh clone** of
 the published branch on TANK; its dry-run SRT gate/disconnect check passed.
 That is a clean-checkout software check, **not a fresh Pi OS installation**.
+
+The GUI's Video Source menu already includes **Pi Cam** for supported 480p
+and 720p configurations. That selection still uses the legacy camera transmit
+path, which has not been ported to Trixie. TANK's attached IMX708 supplied
+live frames to an offline MPEG-TS test via the running rover's snapshot API;
+this does **not** verify Pi Cam touchscreen transmission or RF.
 
 **DVB-S2 distinction:** the existing Portsdown `DATVEXPRESS` GUI mode and
 `express_server` are **DVB-S only**. The new **Express S2** GUI output is a

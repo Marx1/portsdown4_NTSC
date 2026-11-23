@@ -52,11 +52,11 @@ on the `Trixie` branch is `ffmpeg`, while existing installations without the
 key stay on legacy. `h264encoder=software|hardware|auto` selects FFmpeg's
 `libx264`, the Pi V4L2 M2M H.264 encoder, or a hardware probe with software
 fallback. The `PORTSDOWN_H264_ENCODER` environment variable can override it.
-The Trixie factory selects `auto` and `outputstandard=480` for NTSC; use
-`outputstandard=576` for PAL. Set the
-analog capture card to its matching input standard separately, using the
-existing `analogcamstandard` setting and the standards actually reported by
-`v4l2-ctl --list-standards` for that card. The Pluto RTMP, Pi Camera, desktop,
+The Trixie factory selects `auto`, `outputstandard=480`, and
+`analogcamstandard=0`. This fork's EasyCap paths and menu are NTSC-only and
+set the capture card standard to NTSC even if an older config says otherwise.
+The separate FFmpeg helper still has a PAL test mode, but PAL is not an
+operational target. The Pluto RTMP, Pi Camera, desktop,
 test-card, HDMI, and other H.264 paths **have not** been ported to this backend.
 The hardware option is conditional even on 32-bit Trixie: FFmpeg may list
 `h264_v4l2m2m` when the Pi kernel exposes no usable encoder. `auto` encodes a
@@ -127,6 +127,13 @@ V4L2 encoder → MPEG-TS pipeline. This proves camera-to-file TS feasibility,
 **not** integration of the Pi Camera into `scripts/a.sh`, touchscreen control,
 or RF transmission.
 
+With the rover service left running, a separate bounded test captured 15
+live IMX708 snapshot frames from its local API and encoded a decodable
+720×480 MPEG-2 TS offline. This provides a camera-derived test input without
+taking control of the rover camera. The GUI already offers **Pi Cam** in its
+Video Source menu for 480p/720p; the Trixie camera transmit backend remains
+unported, and this test does not verify the GUI or RF.
+
 ## Remaining Trixie work and acceptance gates
 
 1. Boot the Pi from a spare Raspberry Pi OS Trixie Lite **32-bit (`armhf`)**
@@ -142,8 +149,8 @@ or RF transmission.
    Pi. A successful source-level syntax check is not a GUI runtime test.
 4. Port remaining H.264 sources/output modes. Measure libx264 CPU and memory
    use on the 2 GB Pi, continuity/PCR, audio synchronization, and stable RF
-   transmission at the intended symbol rates. Keep PAL functional as an
-   explicit regression gate.
+   transmission at the intended symbol rates. Verify the NTSC-only EasyCap
+   setting on the target capture card.
 5. Test fresh install, update preserving user configuration, shutdown/reboot,
    and rollback on a spare SD card before use on an operational transmitter.
 

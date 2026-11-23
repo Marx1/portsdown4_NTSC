@@ -74,7 +74,6 @@ PIN_Q=$(get_config_var gpio_q $PCONFIGFILE)
 
 ANALOGCAMNAME=$(get_config_var analogcamname $PCONFIGFILE)
 ANALOGCAMINPUT=$(get_config_var analogcaminput $PCONFIGFILE)
-ANALOGCAMSTANDARD=$(get_config_var analogcamstandard $PCONFIGFILE)
 
 AUDIO_PREF=$(get_config_var audio $PCONFIGFILE)
 CAPTIONON=$(get_config_var caption $PCONFIGFILE)
@@ -1134,11 +1133,7 @@ fi
       if [ "$ANALOGCAMINPUT" != "-" ]; then
         v4l2-ctl -d $ANALOGCAMNAME "--set-input="$ANALOGCAMINPUT
       fi
-      # The NTSC fork defaults to NTSC-M (6), but retain the configured PAL
-      # choice when a different analog standard is selected.
-      if [ "$ANALOGCAMSTANDARD" != "-" ]; then
-        v4l2-ctl -d "$ANALOGCAMNAME" --set-standard="$ANALOGCAMSTANDARD"
-      fi
+      v4l2-ctl -d "$ANALOGCAMNAME" --set-standard=ntsc
 
       # Pluto H264 EasyCap
       if [ "$MODE_OUTPUT" == "PLUTO" ] && [ "$MODE_INPUT" == "ANALOGCAM" ]; then
@@ -2006,10 +2001,7 @@ fi
       if [ "$ANALOGCAMINPUT" != "-" ]; then
         v4l2-ctl -d $ANALOGCAMNAME "--set-input="$ANALOGCAMINPUT
       fi
-      # Respect the selected analog standard (NTSC-M is the fork default).
-      if [ "$ANALOGCAMSTANDARD" != "-" ]; then
-        v4l2-ctl -d "$ANALOGCAMNAME" --set-standard="$ANALOGCAMSTANDARD"
-      fi
+      v4l2-ctl -d "$ANALOGCAMNAME" --set-standard=ntsc
     else
       VID_USB=$VID_WEBCAM
     fi
