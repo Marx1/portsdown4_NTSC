@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Receive one OBS SRT call and write a bounded, rate-shaped DATV MPEG-TS file.
+"""Capture one SRT call, then create a bounded, rate-shaped DATV MPEG-TS file.
 
 This is TS preparation only. It never opens transmitter hardware or keys PTT.
 """
 
 import argparse
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -26,6 +27,10 @@ def main():
     parser.add_argument("--port", type=int, default=9000)
     parser.add_argument("--duration", type=int, default=30)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--input-file", type=Path,
+                        help="transcode an existing capture instead of listening on SRT")
+    parser.add_argument("--ingest-file", type=Path,
+                        help="where to retain the received source TS (default: OUTPUT.ingest.ts)")
     parser.add_argument("--s2-backend", type=Path, default=S2_BACKEND)
     args = parser.parse_args()
 
@@ -43,6 +48,17 @@ def main():
         parser.error(f"output already exists: {args.output}")
     if not args.output.parent.is_dir():
         parser.error(f"output directory does not exist: {args.output.parent}")
+    if args.input_file and args.ingest_file:
+        parser.error("--input-file and --ingest-file cannot be combined")
+    ingest_file = args.input_file or args.ingest_file or args.output.with_name(
+        args.output.stem + ".ingest.ts")
+    if args.input_file:
+        if not ingest_file.is_file():
+            parser.error(f"input file not found: {ingest_file}")
+    elif ingest_file.exists() or not ingest_file.parent.is_dir():
+        parser.error(f"ingest path exists or its directory is missing: {ingest_file}")
+    if ingest_file.resolve() == args.output.resolve():
+        parser.error("ingest and output paths must differ")
 
     if args.mode == "dvbs":
         numerator, denominator = DVBS_FEC[args.fec]
@@ -62,8 +78,9 @@ def main():
     mux_percent = 90 if args.mode == "dvbs" else 95
     muxrate = capacity * mux_percent // 100 // 1000 * 1000
     audio_rate = 128000 if args.mode == "dvbs" else 48000
-    video_fraction = 9 if args.mode == "dvbs" else 6
-    video_rate = (muxrate - audio_rate - 40000) * video_fraction // 10 // 1000 * 1000
+    video_fraction = 9 if args.mode == "dvbs" else 55
+    video_divisor = 10 if args.mode == "dvbs" else 100
+    video_rate = (muxrate - audio_rate - 40000) * video_fraction // video_divisor // 1000 * 1000
     if video_rate < 100000:
         parser.error("selected FEC/symbol rate leaves insufficient room for video")
 
@@ -80,17 +97,55 @@ def main():
         video_filter = (f"fps={frame_rate},scale={width}:{height}:force_original_aspect_ratio=decrease,"
                         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p")
         video_encoder = ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
-                         "-profile:v", "baseline", "-bf", "0", "-g", "24"]
+                         "-profile:v", "baseline", "-bf", "0", "-g",
+                         "30" if frame_rate == "15" else "48"]
         video_maxrate = video_rate
         audio_encoder = ["-c:a", "aac", "-b:a", str(audio_rate), "-ac", "1", "-ar", "48000"]
 
-    url = f"srt://0.0.0.0:{args.port}?mode=listener&latency=200000"
+    if not args.input_file:
+        url = f"srt://0.0.0.0:{args.port}?mode=listener&latency=200000"
+        capture = ["ffmpeg", "-hide_banner", "-loglevel", "warning", "-nostats",
+                   "-nostdin", "-n", "-i", url, "-t", str(args.duration),
+                   "-map", "0:v:0", "-map", "0:a:0?", "-c", "copy", "-f", "mpegts",
+                   str(ingest_file)]
+        print(f"Listening on SRT port {args.port}; retaining ingest at {ingest_file}", flush=True)
+        try:
+            received = subprocess.run(capture, capture_output=True, text=True,
+                                      timeout=args.duration + 30)
+        except subprocess.TimeoutExpired:
+            print("SRT capture timed out", file=sys.stderr)
+            return 1
+        if received.stderr:
+            print(received.stderr, file=sys.stderr, end="")
+        if received.returncode or not ingest_file.is_file() or ingest_file.stat().st_size < 18800:
+            print("SRT capture failed or received too little data", file=sys.stderr)
+            return 1
+
+    try:
+        source_probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_streams", "-of", "json", str(ingest_file)],
+            check=True, capture_output=True, text=True)
+        streams = json.loads(source_probe.stdout)["streams"]
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as exc:
+        print(f"Unable to inspect source capture: {exc}", file=sys.stderr)
+        return 1
+    if not any(stream.get("codec_type") == "video" for stream in streams):
+        print("Source capture has no video stream", file=sys.stderr)
+        return 1
+    has_audio = any(stream.get("codec_type") == "audio" for stream in streams)
+
     command = ["ffmpeg", "-hide_banner", "-loglevel", "info", "-nostats", "-nostdin", "-n",
-               "-i", url, "-t", str(args.duration), "-map", "0:v:0", "-map", "0:a:0?",
+               "-i", str(ingest_file), "-t", str(args.duration), "-map", "0:v:0"]
+    if has_audio:
+        command.extend(["-map", "0:a:0"])
+    command += [
                "-vf", video_filter, *video_encoder, "-b:v", str(video_rate),
-               "-maxrate:v", str(video_maxrate), "-bufsize:v", str(video_maxrate * 2),
-               *audio_encoder, "-mpegts_pmt_start_pid", "4095", "-streamid", "0:4096",
-               "-muxrate", str(muxrate), "-f", "mpegts", str(args.output)]
+               "-maxrate:v", str(video_maxrate), "-bufsize:v",
+               str(video_maxrate * 2 if args.mode == "dvbs" else video_maxrate // 2)]
+    if has_audio:
+        command.extend(audio_encoder)
+    command += ["-mpegts_pmt_start_pid", "4095", "-streamid", "0:4096",
+                "-muxrate", str(muxrate), "-f", "mpegts", str(args.output)]
     print(f"{args.mode.upper()} QPSK {symbol_rate} sym/s FEC {args.fec}: "
           f"capacity={capacity}, TS muxrate={muxrate}, video={video_rate} bit/s; "
           f"output={args.resolution}", flush=True)
@@ -108,11 +163,15 @@ def main():
         return result
     try:
         probe = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=bit_rate",
-             "-of", "default=nw=1:nk=1", str(args.output)],
+            ["ffprobe", "-v", "error", "-show_entries", "format=bit_rate,duration,size",
+             "-show_entries", "stream=codec_type,codec_name,width,height",
+             "-of", "json", str(args.output)],
             check=True, capture_output=True, text=True)
-        actual_rate = int(probe.stdout.strip())
-    except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+        result_info = json.loads(probe.stdout)
+        actual_rate = int(result_info["format"]["bit_rate"])
+        actual_duration = float(result_info["format"]["duration"])
+        actual_size = int(result_info["format"]["size"])
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as exc:
         print(f"Unable to verify TS bitrate: {exc}", file=sys.stderr)
         return 1
     print(f"Measured TS bitrate={actual_rate} bit/s; modulator capacity={capacity} bit/s")
@@ -122,6 +181,36 @@ def main():
     if invalid_ts:
         print("FFmpeg reported dts < pcr; TS timing is invalid for this profile.", file=sys.stderr)
         return 1
+    expected_codec = "mpeg2video" if args.mode == "dvbs" else "h264"
+    video_streams = [stream for stream in result_info["streams"]
+                     if stream.get("codec_type") == "video"]
+    expected_dimensions = (720, 480) if args.mode == "dvbs" else (width, height)
+    if (len(video_streams) != 1 or video_streams[0].get("codec_name") != expected_codec
+            or (video_streams[0].get("width"), video_streams[0].get("height")) != expected_dimensions
+            or actual_size % 188 != 0 or actual_duration <= 0):
+        print("Output TS codec, dimensions, packet alignment, or duration is invalid", file=sys.stderr)
+        return 1
+    if has_audio and not any(stream.get("codec_type") == "audio"
+                             for stream in result_info["streams"]):
+        print("Output TS lost its audio stream", file=sys.stderr)
+        return 1
+    decoded = subprocess.run(
+        ["ffmpeg", "-v", "error", "-xerror", "-i", str(args.output), "-f", "null", "-"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    if decoded.returncode:
+        print(f"Output TS decode failed: {decoded.stderr}", file=sys.stderr)
+        return 1
+    if args.mode == "dvbs2":
+        offline = subprocess.run(
+            [str(args.s2_backend), "--input", str(args.output),
+             "--symbol-rate", str(symbol_rate), "--fec", args.fec],
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        if offline.returncode:
+            print(f"Offline DVB-S2 modulation failed: {offline.stderr}", file=sys.stderr)
+            return 1
+        if offline.stderr.strip():
+            print(offline.stderr.strip().splitlines()[-1])
+    print(f"Validated {actual_duration:.3f}s of {expected_codec} TS; no RF transmission")
     return 0
 
 

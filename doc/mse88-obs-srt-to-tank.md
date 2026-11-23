@@ -157,3 +157,66 @@ opt-in experiments, not validated operational presets.
   before using those profiles unattended. The profile was reset to
   `DATV SRT TANK`; a subsequent desktop OBS launch used system libraries.
   TANK's rover service remained active. No RF transmission was attempted.
+
+## Repeatable ATEM-like SRT test (22 November 2026)
+
+The OBS 480/HD crashes above are **not fixed**. For a repeatable transport test
+without touching the running OBS instance, `scripts/atem_srt_emulator.sh` sends
+one bounded H.264/AAC MPEG-TS fixture from MSE-88 using its private SRT-enabled
+FFmpeg. The generated source is 1920×1080 at 30000/1001 fps, roughly 4 Mbit/s
+H.264 video plus 128 kbit/s AAC and a test pattern/tone. This is **ATEM-like**,
+not an exact emulation of any particular ATEM model or its SRT timestamps.
+The actual ATEM output still needs capture and comparison.
+
+`scripts/srt_datv_ts_listener.py` now receives the SRT call into a retained
+`*.ingest.ts` file **first**, then probes and transcodes that local file. This
+separates network arrival timing from slow 720p/1080p encoding. It is a bounded
+file-production workflow, **not continuous live TS forwarding**. By default it
+keeps the source capture alongside the output; `--input-file` can reprocess that
+capture at another resolution/FEC without repeating the network transfer.
+The script rejects an existing output path so test files are not overwritten.
+
+Start TANK first (choose a fresh output filename):
+
+```sh
+python3 /home/leo/portsdown-srt/srt_datv_ts_listener.py \
+  --mode dvbs2 --symbol-rate 1000000 --fec 1/2 --resolution 480p \
+  --port 9000 --duration 20 \
+  --output /home/leo/portsdown-srt/atem-test-001.ts
+```
+
+Then on MSE-88, in a separate shell:
+
+```sh
+/home/mat/portsdown-srt/atem_srt_emulator.sh \
+  --url 'srt://192.168.3.33:9000?mode=caller&latency=200000' \
+  --duration 15
+```
+
+This creates `atem-test-001.ingest.ts` and then `atem-test-001.ts` on TANK.
+For another profile without another SRT call, use the same listener with
+`--input-file /home/leo/portsdown-srt/atem-test-001.ingest.ts`, a different
+`--resolution`/`--fec`, and a **new** `--output` filename. The listener sizes
+the fixed-rate mux below the DVB-S2 backend's reported capacity, detects
+FFmpeg `dts < pcr` warnings, checks packet alignment/codec/raster/audio,
+fully decodes the TS, and feeds it through `express_s2` **offline** at the
+selected symbol rate/FEC. A zero exit status means those checks passed, not
+that RF transmission was tested. The FEC and symbol rate must match the later
+hardware modulator; they are not carried inside the TS.
+
+The fresh 15-second MSE-88 → SRT → TANK run at 1 Msym/s, QPSK FEC 1/2 yielded
+14.744 seconds of 480p H.264/AAC TS at 938,956 bit/s, below the backend's
+988,858 bit/s TS capacity. The automated checks passed, and the offline
+modulator consumed 9,205 TS packets in 430 DVB-S2 frames. Reprocessing the
+saved source at 720p and 1080p passed those same checks at 938,301 and
+938,606 bit/s, respectively. Earlier bounded runs from the same source also
+decoded and modulated offline at 480p/720p/1080p FEC 1/4 and 1080p FEC 9/10;
+the complete matrix has **not** been tested through the final automated
+validator. At 1 Msym/s, 1080p and low-FEC modes have very limited image
+quality despite valid transport timing and codec decodability.
+
+Still needed: a real ATEM capture; sustained/live forwarding if required;
+OBS profile crash diagnosis; visual/audio quality assessment on a receiver;
+and DATV-Express USB, firmware, PTT, and decoded RF tests with hardware.
+Neither the test sender nor the listener starts RF. TANK's rover service was
+left running.
