@@ -59,6 +59,13 @@ PATERNFILE=$(get_config_var paternfile $PCONFIGFILE)
 UDPOUTADDR=$(get_config_var udpoutaddr $PCONFIGFILE)
 UDPOUTPORT=$(get_config_var udpoutport $PCONFIGFILE)
 UDPINPORT=$(get_config_var udpinport $PCONFIGFILE)
+IP_TRANSPORT=$(get_config_var iptransport "$PCONFIGFILE")
+IP_TRANSPORT=${IP_TRANSPORT:-udp}
+IPTS_LOCAL_PORT=$(get_config_var iptslocalport "$PCONFIGFILE")
+IPTS_LOCAL_PORT=${IPTS_LOCAL_PORT:-10001}
+BRIDGE_PID=
+trap 'status=$?; if [ "$status" -ne 0 ] && [ -n "$BRIDGE_PID" ]; then
+  "$PATHSCRIPT/ipts_srt_stop.sh" >/dev/null 2>&1 || true; fi' EXIT
 CALL=$(get_config_var call $PCONFIGFILE)
 CHANNEL="Portsdown_4"
 FREQ_OUTPUT=$(get_config_var freqoutput $PCONFIGFILE)
@@ -362,10 +369,29 @@ case "$MODE_OUTPUT" in
 
   IP)
     FREQUENCY_OUT=0
-    # Set Output parameters for H264 (avc2ts) modes:
-    OUTPUT_IP="-n"$UDPOUTADDR":"$UDPOUTPORT
-    # Set Output parameters for MPEG-2 (ffmpeg) modes:
-    OUTPUT="udp://"$UDPOUTADDR":"$UDPOUTPORT"?pkt_size=1316&buffer_size=1316" # Try this
+    if [ "$IP_TRANSPORT" = "srt" ]; then
+      # The capture encoder still emits MPEG-TS over localhost UDP. A separate
+      # live bridge remuxes it to SRT; RTMP Streamer is not changed.
+      [[ "$IPTS_LOCAL_PORT" =~ ^[0-9]+$ ]] &&
+        (( IPTS_LOCAL_PORT >= 1024 && IPTS_LOCAL_PORT <= 65535 )) || exit 2
+      "$PATHSCRIPT/ipts_srt_bridge.sh" --send --remote "$UDPOUTADDR" \
+        --srt-port "$UDPOUTPORT" --udp-port "$IPTS_LOCAL_PORT" \
+        >/tmp/portsdown-ipts-srt.log 2>&1 &
+      BRIDGE_PID=$!
+      sleep 0.2
+      kill -0 "$BRIDGE_PID" 2>/dev/null || {
+        echo 'IPTS SRT bridge failed to start; see /tmp/portsdown-ipts-srt.log' >&2
+        exit 2
+      }
+      OUTPUT_IP="-n127.0.0.1:$IPTS_LOCAL_PORT"
+      OUTPUT="udp://127.0.0.1:$IPTS_LOCAL_PORT?pkt_size=1316&buffer_size=1316"
+    elif [ "$IP_TRANSPORT" = "udp" ]; then
+      OUTPUT_IP="-n$UDPOUTADDR:$UDPOUTPORT"
+      OUTPUT="udp://$UDPOUTADDR:$UDPOUTPORT?pkt_size=1316&buffer_size=1316"
+    else
+      echo "Unsupported IP transport: $IP_TRANSPORT" >&2
+      exit 2
+    fi
   ;;
 
   COMPVID)
@@ -718,7 +744,7 @@ if [ "$H264_BACKEND" == "ffmpeg" ]; then
       fi
       case "$MODE_OUTPUT" in
         IP)
-          CAPTURE_TS_OUTPUT="udp://$UDPOUTADDR:$UDPOUTPORT?pkt_size=1316"
+          CAPTURE_TS_OUTPUT="$OUTPUT"
           ;;
         COMPVID)
           CAPTURE_TS_OUTPUT=/dev/null
@@ -1471,7 +1497,7 @@ fi
       fi
 
       if [ "$MODE_OUTPUT" == "IP" ]; then
-        H264_OUTPUT="udp://$UDPOUTADDR:$UDPOUTPORT?pkt_size=1316"
+        H264_OUTPUT="$OUTPUT"
       elif { [ "$MODULATION" == "DVB-T" ] || [ "$MODULATION" == "DVB-T2" ]; } && [ -n "$OUTPUT_IP" ]; then
         H264_TARGET=${OUTPUT_IP#-n}
         H264_TARGET=${H264_TARGET# }

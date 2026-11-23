@@ -65,6 +65,10 @@ Detailed status, build evidence, and acceptance gates:
 
 The MSE-88 OBS to TANK SRT/offline DVB-S2 test path is documented in
 [MSE-88 OBS SRT to TANK](doc/mse88-obs-srt-to-tank.md).
+The separate [Portsdown IP Output/SRT confidence link](doc/ipts-srt-link.md)
+keeps BATC Streamer RTMP/FLV intact and adds SRT as an optional live MPEG-TS
+transport to another system's IPTS Monitor. Legacy IPTS-in-to-RF still lacks
+a valid-input interlock; the new link is not an RF verification.
 It now has bounded TS-preparation profiles for **DVB-S 2222 ksym/s,
 MPEG-2/480p** and **DVB-S2 1000 ksym/s, H.264/480p, 720p, or 1080p**,
 with selectable FEC for capacity sizing. A repeatable

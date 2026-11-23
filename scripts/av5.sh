@@ -29,7 +29,21 @@ AUDIO_OUT=$(get_config_var audio $RCONFIGFILE)
 
 # Read from Portsdown config file
 UDPINPORT=$(get_config_var udpinport $PCONFIGFILE)
+IP_TRANSPORT=$(get_config_var iptransport $PCONFIGFILE)
+IP_TRANSPORT=${IP_TRANSPORT:-udp}
+IPTS_LOCAL_PORT=$(get_config_var iptslocalport $PCONFIGFILE)
+IPTS_LOCAL_PORT=${IPTS_LOCAL_PORT:-10001}
 VLCVOLUME=$(get_config_var vlcvolume $PCONFIGFILE)
+
+if [ "$IP_TRANSPORT" = "srt" ]; then
+  # The touchscreen IPTS Monitor receives live SRT, then VLC views only a
+  # localhost UDP TS. The RF IPTSIN transmitter remains a separate path.
+  /home/pi/rpidatv/scripts/ipts_srt_bridge.sh --receive \
+    --srt-port "$UDPINPORT" --udp-port "$IPTS_LOCAL_PORT" \
+    --pid-file /tmp/portsdown-ipts-srt-rx.pid \
+    >/tmp/portsdown-ipts-srt-rx.log 2>&1 &
+  UDPINPORT=$IPTS_LOCAL_PORT
+fi
 
 # Send audio to the correct port
 if [ "$AUDIO_OUT" == "rpi" ]; then
@@ -88,5 +102,4 @@ sleep 1
 printf "volume "$VLCVOLUME"\nlogout\n" | nc 127.0.0.1 1111 >/dev/null 2>/dev/null
 
 exit
-
 

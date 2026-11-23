@@ -193,7 +193,7 @@ char TabModeVidIP[2][7]={"0","1"};
 char TabModeOP[15][31]={"IQ", "QPSKRF", "DATVEXPRESS", "LIMEUSB", "STREAMER", "COMPVID", \
   "LIBRESDR", "IP", "LIMEMINI", "JLIME", "JSTREAM", "MUNTJAC", "LIMEDVB", "PLUTO", "DATVEXPRESS_S2"};
 char TabModeOPtext[15][31]={"Portsdown", " Ugly ", "Express", "Lime USB", "BATC^Stream", "Comp Vid", \
-  "LibreSDR", "IPTS out", "Lime Mini", "Jetson^Lime", "Jetson^Stream", "Muntjac", "Lime DVB", "Pluto", "Express^S2"};
+  "LibreSDR", "IP^Output", "Lime Mini", "Jetson^Lime", "Jetson^Stream", "Muntjac", "Lime DVB", "Pluto", "Express^S2"};
 char TabAtten[4][15] = {"NONE", "PE4312", "PE43713", "HMC1119"};
 char CurrentModeOP[31] = "QPSKRF";
 char CurrentModeOPtext[31] = " UGLY ";
@@ -981,6 +981,13 @@ void GetConfigParam(char *PathConfigFile, char *Param, char *Value)
   }
   fclose(fp);
 
+  // Existing installations predate this optional setting. Treat them as UDP
+  // until the operator explicitly chooses SRT in the TS IP menu.
+  if (strlen(Value) == 0 && strcmp(Param, "iptransport") == 0)
+  {
+    strcpy(Value, "udp");
+    return;
+  }
   if (strlen(Value) == 0)  // Display error if parameter undefined
   {  
     usleep(100000);           // Pause to let screen initialise
@@ -1039,16 +1046,22 @@ void SetConfigParam(char *PathConfigFile, char *Param, char *Value)
 
   if(fp!=0)
   {
+    int found = 0;
     while ((read = getline(&line, &len, fp)) != -1)
     {
       if(strncmp (line, ParamWithEquals, strlen(Param) + 1) == 0)
       {
+        found = 1;
         fprintf(fw, "%s=%s\n", Param, Value);
       }
       else
       {
         fprintf(fw, line);
       }
+    }
+    if (!found && strcmp(Param, "iptransport") == 0)
+    {
+      fprintf(fw, "\niptransport=%s\n", Value);
     }
     fclose(fp);
     fclose(fw);
@@ -2544,7 +2557,9 @@ void ReadModeOutput(char Moutput[256])
   } 
   else if (strcmp(ModeOutput, "IP") == 0) 
   {
-    strcpy(Moutput, "IP Stream");
+    char IPTransport[255] = "";
+    GetConfigParam(PATH_PCONFIG, "iptransport", IPTransport);
+    strcpy(Moutput, strcmp(IPTransport, "srt") == 0 ? "IP TS over SRT" : "IP TS over UDP");
     strcpy(CurrentModeOPtext, TabModeOPtext[7]);
   } 
   else if (strcmp(ModeOutput, "JLIME") == 0) 
@@ -12689,6 +12704,7 @@ void TransmitStop()
   // Stop the interlocked backend and wait for its deinit before generic
   // killall calls affect the SRT encoder.
   system("/home/pi/rpidatv/scripts/srt_tx_stop.sh >/dev/null 2>/dev/null");
+  system("/home/pi/rpidatv/scripts/ipts_srt_stop.sh >/dev/null 2>/dev/null");
 
   // If transmit menu is displayed, blue-out the TX button here
   // code to be added
@@ -17113,6 +17129,8 @@ void MonitorStop()
   char bashcmd[255];
   char picamdev1[15];
 
+  system("/home/pi/rpidatv/scripts/ipts_srt_stop.sh /tmp/portsdown-ipts-srt-rx.pid >/dev/null 2>/dev/null");
+
   // Kill the key processes as nicely as possible
   system("sudo killall ffmpeg >/dev/null 2>/dev/null");
   system("sudo killall avc2ts >/dev/null 2>/dev/null");
@@ -17244,6 +17262,15 @@ void IPTSConfig(int NoButton)
       SetConfigParam(PATH_PCONFIG, "tsvideofile", NewTSPath);            // Save filename to config file   
       strcpy(TSVideoFile, NewTSPath);
     }
+    break;
+  case 7:                            // Toggle IP Output / IPTS Monitor transport
+    {
+      char IPTransport[255] = "";
+      GetConfigParam(PATH_PCONFIG, "iptransport", IPTransport);
+      SetConfigParam(PATH_PCONFIG, "iptransport",
+                     strcmp(IPTransport, "srt") == 0 ? "udp" : "srt");
+    }
+    break;
   }
 }
 
@@ -24184,11 +24211,13 @@ void waituntil(int w,int h)
         case 1:                               // IP TS Out Port
         case 2:                               // IP TS In Port
         case 3:                               // TS Filename
+        case 7:                               // UDP/SRT transport toggle
           printf("IPTS Config %d\n", i);
           IPTSConfig(i);
           CurrentMenu=40;
           setBackColour(0, 0, 0);
           clearScreen();
+          Start_Highlights_Menu40();
           UpdateWindow();
           break;
         case 4:                               // Exit
@@ -29958,11 +29987,17 @@ void Define_Menu40()
 
   button = CreateButton(40, 6);
   AddButtonStatus(button,"Edit RX Out^IP Port",&Blue);
+
+  button = CreateButton(40, 7);
+  AddButtonStatus(button,"IP TS:^UDP",&Blue);
 }
 
 void Start_Highlights_Menu40()
 {
-  // Nothing here yet
+  char IPTransport[255] = "";
+  GetConfigParam(PATH_PCONFIG, "iptransport", IPTransport);
+  AmendButtonStatus(ButtonNumber(40, 7), 0,
+                    strcmp(IPTransport, "srt") == 0 ? "IP TS:^SRT" : "IP TS:^UDP", &Blue);
 }
 
 

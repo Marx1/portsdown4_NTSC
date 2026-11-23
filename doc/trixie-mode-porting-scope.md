@@ -61,10 +61,12 @@ The earlier real AArch64 backend I/Q and SRT checks are documented in
   USB/network dependencies, then verify firmware/API compatibility, frequency,
   sample rate, gain, PTT/mute, underrun, and receiver decode on hardware.
   Express raw-16 I/Q cannot be redirected to Pluto unchanged.
-- **Streamer:** Identify the intended destination (BATC/RTMP or network TS)
-  and its MPEG-2/H.264 requirements. Replace Buster capture assumptions,
-  verify URL/auth handling and reconnect without affecting RF outputs, and
-  measure audio/video sync at the receiving player.
+- **Streamer / IP Output:** These are now explicitly separate: Streamer keeps
+  RTMP/FLV via `streamurl/streamkey`; IP Output offers direct UDP TS or an
+  SRT TS bridge to another Pi's IPTS Monitor. See [link setup](ipts-srt-link.md).
+  Replace Streamer's Buster capture assumptions, verify RTMP URL/auth and
+  reconnect, and measure audio/video sync. The new SRT bridge does not make
+  legacy IPTS-in-to-RF loss-interlocked.
 - **Lime, native Pi RF, DVB-T/T2, Muntjac, Jetson, other outputs:** Audit each
   separate binary, architecture-specific build flags/assembly, libraries,
   firmware and GPIO/DMA assumptions. Port and test individually; a native

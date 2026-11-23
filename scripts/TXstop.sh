@@ -30,6 +30,10 @@ EOF
 
 MODE_OUTPUT=$(get_config_var modeoutput $PCONFIGFILE)
 
+# The optional IP Output/SRT bridge owns its FFmpeg child. Stop it before
+# generic process cleanup so no caller or local UDP ingest remains alive.
+"$PATHSCRIPT/ipts_srt_stop.sh" >/dev/null 2>&1 || true
+
 # Stop Jetson transmitting if required
 
 case "$MODE_OUTPUT" in
