@@ -38,12 +38,12 @@ On TANK, start a bounded capture with a new filename:
   --output /home/leo/portsdown-srt/obs-test-001.ts
 ```
 
-On MSE-88, use the running OBS if its profile is already **DATV SRT TANK**.
-Otherwise close OBS and launch **OBS DATV SRT to TANK**. Verify that profile
-is selected. Select the intended
-scene and click **Start Recording**. OBS labels this button “Recording” even
-though the custom FFmpeg output is a network SRT stream. Stop it before the
-TANK capture timeout, then inspect the file on TANK:
+On MSE-88, close any existing OBS instance and launch **OBS DATV SRT to TANK
+(Streaming 480p)**. Verify the **DATV SRT TANK STREAM 480** profile is selected.
+Select the intended scene and click **Start Streaming**. This native-encoder
+SRT path is the tested workaround for crashes in the older Custom FFmpeg
+Recording profiles; see the diagnosis below. Stop Streaming before the TANK
+capture timeout, then inspect the file on TANK:
 
 ```sh
 ffprobe -v error -show_entries format=duration,bit_rate,size \
@@ -102,7 +102,8 @@ captures whose measured TS rate exceeds capacity or whose muxer reports
 key RF. At 1 Msym/s, low FEC rates leave very little room for 720p/1080p;
 those selections can yield poor quality or fail the TS-timing check.
 
-On TANK, start one listener **before** clicking **Start Recording** in OBS:
+On TANK, start one listener **before** clicking **Start Streaming** in the new
+OBS profile:
 
 ```sh
 python3 /home/leo/portsdown-srt/srt_datv_ts_listener.py \
@@ -115,7 +116,7 @@ python3 /home/leo/portsdown-srt/srt_datv_ts_listener.py \
   --output /home/leo/portsdown-srt/dvbs2-480-001.ts
 ```
 
-Use a fresh output name on every run and stop OBS recording before the
+Use a fresh output name on every run and stop OBS streaming before the
 listener duration. `--resolution 720p` or `1080p` selects the other S2
 rasters; `--symbol-rate` can override the default. Offline DVB-S2 modulation
 with the **same** FEC and symbol rate can be checked without RF:
@@ -160,7 +161,7 @@ opt-in experiments, not validated operational presets.
 
 ## Repeatable ATEM-like SRT test (22 November 2026)
 
-The OBS 480/HD crashes above are **not fixed**. For a repeatable transport test
+The OBS Custom FFmpeg Recording 480/HD crashes above are **not fixed**. For a repeatable transport test
 without touching the running OBS instance, `scripts/atem_srt_emulator.sh` sends
 one bounded H.264/AAC MPEG-TS fixture from MSE-88 using its private SRT-enabled
 FFmpeg. The generated source is 1920×1080 at 30000/1001 fps, roughly 4 Mbit/s
@@ -216,10 +217,47 @@ validator. At 1 Msym/s, 1080p and low-FEC modes have very limited image
 quality despite valid transport timing and codec decodability.
 
 Still needed: a real ATEM capture; sustained/live forwarding if required;
-OBS profile crash diagnosis; visual/audio quality assessment on a receiver;
-and DATV-Express USB, firmware, PTT, and decoded RF tests with hardware.
+visual/audio quality assessment on a receiver; and DATV-Express USB, firmware,
+PTT, and decoded RF tests with hardware.
+
 Neither the test sender nor the listener starts RF. TANK's rover service was
 left running.
+
+## OBS crash diagnosis and native SRT streaming workaround (22 November 2026)
+
+Two MSE-88 OBS 29.1.3 core dumps from repeated **Start/Stop Recording** in the
+480/HD Custom Output (FFmpeg) profiles have the same signature: a null
+`reordered_opaque` array in FFmpeg 4.2.7's `libx264` wrapper during encode,
+after OBS begins stopping the output. OBS's `ffmpeg_output_full_stop()` starts
+asynchronous capture shutdown but immediately deactivates/frees its FFmpeg
+video context. That is consistent with an encode/shutdown race; the exact
+trigger has not been proven. The crashes are **not** caused by mixed system and
+private FFmpeg libraries: the crashed OBS processes mapped all FFmpeg libraries
+from the private build. Rebuilding OBS alone is not established as a fix.
+
+OBS 29.1.3 has a different path for SRT **Streaming**: the `ffmpeg_mpegts_muxer`
+uses OBS's native x264/AAC encoders and FFmpeg for MPEG-TS muxing and SRT
+transport, bypassing the crashing FFmpeg `libx264` encoder path. On MSE-88, a
+separate **DATV SRT TANK STREAM 480** profile and **OBS DATV SRT to TANK
+(Streaming 480p)** launcher select this route. The launcher is
+`/home/mat/portsdown-srt/start-obs-datv-stream.sh`; it still requires closing
+the existing OBS instance first so the private SRT-enabled FFmpeg libraries
+are used. The original profiles and launchers are unchanged. In this new
+profile, click **Start Streaming**, *not* Start Recording. The destination is
+`srt://192.168.3.33:9000?mode=caller&latency=200000`, with 600 kbit/s H.264
+and 64 kbit/s AAC. OBS aligned the nominal 854x480 output to 852x480; TANK's
+listener scales it to the requested 854x480 DVB-S2 TS raster.
+
+The isolated native-stream profile passed three successive Start/Stop Streaming
+cycles to local SRT listeners. Each capture contained decodable H.264/AAC; OBS
+remained alive and produced no new core dump. A separate 10-second MSE-88 →
+TANK SRT run then yielded a 9.906-second H.264/AAC 854x480 TS at 935,388
+bit/s, below the DVB-S2 QPSK 1 Msym/s FEC 1/2 capacity of 988,858 bit/s.
+TANK's validator decoded it and the standalone modulator consumed 6,161 TS
+packets in 288 frames **offline**. The input reported an I/O error when OBS
+disconnected, but the completed TS passed validation. This tested a blank
+OBS scene, not a camera/ATEM scene or RF output. Longer runs and the 720p/HD
+native-stream profiles remain untested.
 
 ## Low-resolution encoder return from TANK to OBS
 
