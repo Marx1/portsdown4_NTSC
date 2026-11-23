@@ -261,13 +261,15 @@ native-stream profiles remain untested.
 
 ## Low-resolution encoder return from TANK to OBS
 
-TANK now has a separate `tank-encoder-return.service` on
-`http://192.168.3.33:9013/return.ts`. It loops a **saved, validated TS file**
-and re-encodes it as 426×240/15 fps H.264 with mono AAC at roughly 300 kbit/s.
-The source is selected via `/home/leo/portsdown-srt/current-encoded.ts`; the
-latest validated test is `obs-preview-cycle-20261122.ts`. This is an encoded-output
-**confidence return**, not a live view of the current encoder, SRT arrival,
-DATV-Express board, or received RF signal. It does not start a transmitter.
+TANK has a separate `tank-encoder-return.service` on
+`http://192.168.3.33:9013/return.ts`. At rest it **generates** color bars with
+centered **NO Signal YET!!!** text. During a preview cycle it re-encodes the
+**currently arriving SRT video** as 426×240/15 fps H.264 with mono AAC at
+roughly 300 kbit/s. When SRT packets stop for four seconds, or the SRT capture
+ends, it returns to the generated card. It **never plays a saved TS recording**.
+This is a confidence view of the incoming source, **not** the shaped DVB-S2
+output, DATV-Express board, or received RF signal. It does not start a
+transmitter.
 The service accepts one viewer at a time and reopens the listener after a
 viewer disconnects. It is independent of `rover-web.service`.
 
@@ -277,38 +279,21 @@ for an input format, use `mpegts`. Leave the existing output profile alone.
 Avoid placing the return in the scene being sent back to TANK unless a video
 feedback loop is intended. MSE-88's **system FFmpeg** successfully captured
 and decoded 5 seconds from the running service as H.264 426×240/15 fps plus
-AAC, around 331 kbit/s. A 20-second capture crossed the source file loop
-point and decoded, and a second client connection succeeded. During the later
-preview-cycle test, the OBS Media Source on MSE-88 established a TCP viewer
-connection after each return-service restart; its visual display was not
-independently inspected by the agent.
+AAC, around 331 kbit/s. The earlier version looped saved TS recordings; that
+behavior was removed. OBS may reconnect after each source change. The service
+is enabled for boot; its unit is `scripts/tank-encoder-return.service` and its
+server is `scripts/tank_encoder_return.sh`. It is independent of the rover.
 
-To preview another **already validated** TS file, point the symlink at it and
-restart the service, then refresh the OBS Media Source:
-
-```sh
-cd /home/leo/portsdown-srt
-ln -s /absolute/path/to/validated-output.ts current-encoded.next
-mv -Tf current-encoded.next current-encoded.ts
-sudo systemctl restart tank-encoder-return.service
-systemctl is-active tank-encoder-return.service
-```
-
-The source file must remain on TANK while it is served. The service is enabled
-for boot and its unit is in `scripts/tank-encoder-return.service`; the server
-is `scripts/tank_encoder_return.sh`. Change or stop only that service; the
-rover and SRT ingest run separately.
-
-### Automatic waiting card and validated-file switch
+### Automatic live SRT preview and waiting-card return
 
 For new tests, use `scripts/srt_datv_preview_cycle.sh` on TANK instead of
-calling the listener directly. It atomically points the HTTP return at a
-color-bar test signal with centered **NO Signal YET!!!** text, restarts only
-the return service, then runs the bounded SRT capture and TS validator. Only
-after full TS decode and offline DVB-S2 modulation pass does it switch the
-return to the new file. A failed test leaves the waiting card visible. The
-return is **not live** during SRT reception or transcoding; OBS reconnects
-after the brief service restarts.
+calling the listener directly. It starts with the waiting card, switches to
+the current SRT input after FFmpeg has emitted 1,000 TS packets, and restores
+the card when packets stop or capture ends. It uses localhost UDP port 9014
+for the live preview and restarts only the return service at each switch. The
+received source TS and the separately shaped DVB-S2 TS are still saved and
+validated offline; neither is used for preview playback. OBS reconnects after
+the brief service restarts.
 
 Start TANK first, with a new output name, then use the SRT-enabled OBS launcher
 on MSE-88 and click **Start Streaming**:
@@ -324,12 +309,17 @@ on MSE-88 and click **Start Streaming**:
 allows time for OBS to connect. If a capture times out after receiving enough
 video, the listener now attempts to validate the retained partial ingest.
 Stop OBS Streaming when the intended clip is complete. Do not overwrite an
-existing output path. The 426×240 return shows the saved validated output on
-a loop, not DATV-Express RF reception.
+existing output path. The 426×240 return shows only live incoming video or
+the generated waiting card, not DATV-Express RF reception. Set `--resolution`
+to `720p` or `1080p` to change the **saved DVB-S2 TS** raster; the OBS return
+remains 426×240. At 1 Msym/s, 1080p quality is necessarily very low.
 
-The first preview-cycle demonstration reused the retained 37.6-second OBS SRT
-ingest and produced 30.010 seconds of H.264/AAC 854×480 TS at 939,147 bit/s,
-below the 988,858 bit/s capacity for DVB-S2 QPSK 1 Msym/s FEC 1/2. Full
-decode and offline modulation passed (18,739 packets, 877 frames). OBS
-reconnected to the waiting card during processing and to the new TS after
-validation. No RF was enabled.
+The older saved-file preview was demonstrated with a 37.6-second OBS ingest;
+that mode is obsolete. The new live/card behavior was tested with a 1080p
+ATEM-like SRT emulator. The 720p profile produced 14.755 seconds of
+H.264/AAC TS at 938,301 bit/s; the 1080p profile produced 29.755 seconds at
+938,904 bit/s. Both are below the DVB-S2 1 Msym/s FEC 1/2 capacity of
+988,858 bit/s, decoded in full, and passed offline modulation. The live HTTP
+return decoded during the 1080p run, and the generated waiting card decoded
+again after SRT stopped. Neither saved TS was played on the return. No RF was
+enabled.

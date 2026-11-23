@@ -33,6 +33,9 @@ def main():
                         help="transcode an existing capture instead of listening on SRT")
     parser.add_argument("--ingest-file", type=Path,
                         help="where to retain the received source TS (default: OUTPUT.ingest.ts)")
+    parser.add_argument("--preview-udp", help="also forward incoming TS to a local UDP live preview")
+    parser.add_argument("--preview-end-file", type=Path,
+                        help="touch this file when SRT capture ends, before offline validation")
     parser.add_argument("--s2-backend", type=Path, default=S2_BACKEND)
     args = parser.parse_args()
 
@@ -53,6 +56,10 @@ def main():
         parser.error(f"output directory does not exist: {args.output.parent}")
     if args.input_file and args.ingest_file:
         parser.error("--input-file and --ingest-file cannot be combined")
+    if args.input_file and (args.preview_udp or args.preview_end_file):
+        parser.error("live preview options require an SRT input")
+    if args.preview_udp and not args.preview_udp.startswith("udp://127.0.0.1:"):
+        parser.error("--preview-udp must target localhost")
     ingest_file = args.input_file or args.ingest_file or args.output.with_name(
         args.output.stem + ".ingest.ts")
     if args.input_file:
@@ -111,6 +118,9 @@ def main():
                    "-nostdin", "-n", "-i", url, "-t", str(args.duration),
                    "-map", "0:v:0", "-map", "0:a:0?", "-c", "copy", "-f", "mpegts",
                    str(ingest_file)]
+        if args.preview_udp:
+            capture += ["-t", str(args.duration), "-map", "0:v:0", "-map", "0:a:0?",
+                        "-c", "copy", "-f", "mpegts", args.preview_udp]
         print(f"Listening on SRT port {args.port}; retaining ingest at {ingest_file}", flush=True)
         try:
             received = subprocess.run(capture, capture_output=True, text=True,
@@ -118,6 +128,8 @@ def main():
         except subprocess.TimeoutExpired:
             print("SRT capture timed out; checking retained partial ingest", file=sys.stderr)
             received = None
+        if args.preview_end_file:
+            args.preview_end_file.touch()
         if received and received.stderr:
             print(received.stderr, file=sys.stderr, end="")
         if ((received is not None and received.returncode) or not ingest_file.is_file()

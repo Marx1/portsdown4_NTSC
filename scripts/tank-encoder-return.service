@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=leo
 Group=leo
-ExecStart=/home/leo/portsdown-srt/tank_encoder_return.sh --input /home/leo/portsdown-srt/current-encoded.ts --bind 192.168.3.33 --port 9013
+ExecStart=/home/leo/portsdown-srt/tank_encoder_return.sh --mode-file /home/leo/portsdown-srt/return-mode --bind 192.168.3.33 --port 9013
 Restart=on-failure
 RestartSec=2
 
