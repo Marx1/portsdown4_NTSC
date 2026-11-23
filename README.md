@@ -11,14 +11,14 @@ do **not** run `install_portsdown.sh` or `update.sh` on Trixie.
 | Target | Implemented and checked | Not yet verified |
 | --- | --- | --- |
 | Pi 4, Raspberry Pi OS Trixie Lite **32-bit (`armhf`)**, original 7-inch 800×480 display | NTSC/PAL FFmpeg MPEG-TS path for analog/webcam input, encoder selection, GUI framebuffer/touchscreen fixes, and an installer guard. Offline TS tests passed; hardware H.264 encoding was demonstrated on a separate **64-bit** Pi 4. | Boot/build on the actual 32-bit target, original display and touch, capture devices, GUI runtime, installer/update, and RF output. |
-| Pi 4, Trixie **64-bit (`arm64`)**, DATV-Express USB board | Native AArch64 `rpidatv`, DVB-T2 stack, and DVB-S `express_server` builds. Experimental standalone DVB-S2 TS-to-I/Q-to-raw-USB backend built and generated I/Q offline on TANK. SRT listener accepted a synthetic H.264/AAC stream. | DATV-Express board USB enumeration, firmware, sustained I/Q, PTT, decoded DVB-S2/RF, GUI integration, and actual ATEM input. The board was not connected; no RF was transmitted. |
+| Pi 4, Trixie **64-bit (`arm64`)**, DATV-Express USB board | Native AArch64 `rpidatv`, DVB-T2 stack, DVB-S `express_server`, and updated touchscreen GUI builds. Experimental DVB-S2 backend generated I/Q offline. A separate SRT TX supervisor started the backend only after valid live video TS and stopped it on disconnect or packet stall in TANK dry-run tests. | Physical touchscreen/Web Control runtime, DATV-Express USB enumeration, firmware, sustained I/Q, PTT, decoded DVB-S2/RF, and actual ATEM input. TANK has no board or framebuffer; no RF was transmitted. |
 
 **DVB-S2 distinction:** the existing Portsdown `DATVEXPRESS` GUI mode and
-`express_server` are **DVB-S only**. The new
+`express_server` are **DVB-S only**. The new **Express S2** GUI output is a
+separate experimental QPSK path, currently requiring **Source: SRT**. Its
 [`src/express_s2` backend](src/express_s2/express_s2.cpp) generates DVB-S2 I/Q
-and uses the raw-16 USB path, but has not been tested with a board and is not
-selectable in the GUI. Neither 32-bit nor 64-bit Portsdown currently has
-verified DVB-S2 transmission through DATV-Express.
+and uses raw-16 USB, but has not been tested with a board. Neither 32-bit nor
+64-bit Portsdown has verified DVB-S2 transmission through DATV-Express.
 
 ### Remaining work
 
@@ -30,16 +30,17 @@ verified DVB-S2 transmission through DATV-Express.
    build and offline modulation do not establish a working transmitter.
 3. **DATV-Express DVB-S2:** connect the board to TANK with an appropriate
    dummy load or attenuated receiver; verify raw-16 firmware, USB pacing,
-   errors, PTT/stop behavior, and a decoded RF signal. Then connect the
-   backend to Portsdown's `videots` input, expose a separate DVB-S2 GUI mode,
-   and add the required symbol-rate/FEC controls without changing DVB-S.
-4. **SRT/ATEM:** capture the actual feed, measure bitrate and codecs, match it
-   to DVB-S2 channel capacity, and integrate listener lifecycle and TS input.
+   errors, PTT/stop behavior, and a decoded RF signal. The separate GUI mode
+   and SRT interlock now build, but still require display and hardware tests.
+4. **SRT/ATEM:** capture the actual feed, measure bitrate and codecs, verify
+   live transcode timing at 480p/720p/1080p, and integrate the low-res return
+   with the interlocked TX listener. Only one process can bind SRT port 9000.
 
 Detailed status, build evidence, and acceptance gates:
 [32-bit NTSC/Trixie migration](doc/ntsc-trixie-migration.md),
 [64-bit transmitter and DATV-Express DVB-S2](doc/arm64-transmitter.md), and
-[SRT ingest](doc/srt-express-ingest.md).
+[SRT ingest](doc/srt-express-ingest.md), and
+[interlocked SRT TX](doc/srt-interlocked-tx.md).
 
 The MSE-88 OBS to TANK SRT/offline DVB-S2 test path is documented in
 [MSE-88 OBS SRT to TANK](doc/mse88-obs-srt-to-tank.md).

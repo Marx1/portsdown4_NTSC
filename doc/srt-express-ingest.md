@@ -25,8 +25,10 @@ Portsdown input bridge. SRT reception alone is **not** DATV-Express RF support:
 the ATEM stream's rate may exceed the DVB-S channel capacity. Measure its
 codec and bitrate, then choose a rate-matched remux/transcode path before
 feeding `express_server` on local UDP port 1314. The experimental touchscreen
-can now label **SRT** as the selected source, but the legacy transmitter does
-not manage this listener's lifecycle or use its output for RF transmission.
+can now label **SRT** as the selected source. This standalone capture tool is
+still ingest-only; the separate experimental
+[SRT-interlocked DVB-S2 path](srt-interlocked-tx.md) manages its own listener
+and backend. They cannot both bind port 9000 at the same time.
 
 ## Verification to date
 

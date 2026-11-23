@@ -21,10 +21,13 @@ cd /home/pi
 
 source /home/pi/rpidatv/scripts/a_functions.sh
 
-# The SRT source currently feeds a separate receive/preview and offline TS
-# validation path.  Do not fall through to another input or key any RF output.
+# SRT uses a dedicated interlocked transmitter. The legacy path below can
+# assert PTT before it knows whether any source TS exists.
 if [ "$(get_config_var modeinput "$PCONFIGFILE")" = "SRT" ]; then
-  echo "SRT source is receive-only; RF transmission is not connected" >&2
+  exec python3 "$PATHSCRIPT/srt_interlocked_tx.py" --config "$PCONFIGFILE"
+fi
+if [ "$(get_config_var modeoutput "$PCONFIGFILE")" = "DATVEXPRESS_S2" ]; then
+  echo "DATV Express S2 currently requires the interlocked SRT source" >&2
   exit 2
 fi
 

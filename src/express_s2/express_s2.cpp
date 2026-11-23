@@ -1,5 +1,6 @@
 // Experimental DVB-S2 I/Q sender for the DATV-Express raw-16 USB firmware.
-// Not connected to the Portsdown GUI. Default mode never opens USB or RF.
+// Selected only by the GUI's interlocked SRT/Express S2 path.
+// Default mode never opens USB or RF.
 #include <cerrno>
 #include <csignal>
 #include <cstdint>
@@ -8,7 +9,9 @@
 #include <cstring>
 #include <getopt.h>
 #include <limits>
+#include <poll.h>
 #include <type_traits>
+#include <unistd.h>
 
 #include "libdvbmod.h"
 #include "express.h"
@@ -176,10 +179,36 @@ int main(int argc, char **argv)
     bool tx_enabled = false;
     while (!stop_requested && (max_packets == 0 || packets < max_packets)) {
         if (input) {
-            const size_t bytes = std::fread(packet, 1, sizeof(packet), input);
+            size_t bytes = 0;
+            if (transmit && input == stdin) {
+                // A live source can stop without closing its pipe. Never leave
+                // the board keyed while a blocking stdio read waits forever.
+                int idle_ms = 0;
+                while (bytes < sizeof(packet) && !stop_requested) {
+                    pollfd ready = {STDIN_FILENO, POLLIN, 0};
+                    const int poll_result = poll(&ready, 1, 250);
+                    if (poll_result < 0) {
+                        if (errno == EINTR) continue;
+                        break;
+                    }
+                    if (poll_result == 0) {
+                        idle_ms += 250;
+                        if (idle_ms >= 2000) break;
+                        continue;
+                    }
+                    const ssize_t count = read(STDIN_FILENO, packet + bytes,
+                                               sizeof(packet) - bytes);
+                    if (count <= 0) break;
+                    bytes += static_cast<size_t>(count);
+                    idle_ms = 0;
+                }
+            } else {
+                bytes = std::fread(packet, 1, sizeof(packet), input);
+            }
+            if (stop_requested) break;
             if (bytes == 0 && std::feof(input)) break;
             if (bytes != sizeof(packet)) {
-                std::fprintf(stderr, "Short or failed TS packet read\n");
+                std::fprintf(stderr, "Short, failed, or timed-out TS packet read\n");
                 result = 1;
                 break;
             }

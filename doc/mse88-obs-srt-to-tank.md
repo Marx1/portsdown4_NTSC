@@ -1,18 +1,19 @@
 # MSE-88 OBS → SRT → TANK DATV test path
 
-This path prepares bounded MPEG-TS files and checks DVB-S2 modulation
-**offline**. It does not control DATV-Express USB, PTT, or RF. FEC and symbol
-rate are selected on TANK, not in an OBS profile.
+The bounded preview/capture path below prepares MPEG-TS files and checks
+DVB-S2 modulation **offline**. It does not control DATV-Express USB, PTT, or
+RF. A separate experimental [interlocked SRT TX](srt-interlocked-tx.md)
+path is now available in the branch; it is not the preview/capture process.
 
 The Portsdown touchscreen source menu in this branch now has an **SRT** entry
 in the formerly unused second-row slot. Selecting it makes the main control
 display read **Source: SRT** and persists `modeinput=SRT` across restarts and
-presets. This is a status/selection for the separate TANK SRT receive and
-preview path below; it does **not** start that listener or transmit. Pressing
-TX with SRT selected displays a receive-only message instead of keying PTT.
-The legacy `a.sh` script also rejects `modeinput=SRT` before stopping any
-processes or starting an RF output. Touchscreen behavior still needs testing
-on a Portsdown system with a display; this host has no GUI build dependencies.
+presets. With **Express S2** output selected, pressing TX arms a separate live
+listener without keying RF; it starts the experimental DVB-S2 backend only
+after live video TS arrives and stops it on loss. Other SRT output selections
+fail closed. TANK built the GUI but has no framebuffer, touchscreen, or
+DATV-Express board, so physical/Web Control and RF behavior still need
+testing. The preview cycle and TX listener cannot both bind port 9000.
 
 ## OBS profiles on MSE-88
 

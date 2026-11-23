@@ -192,9 +192,9 @@ char TabModeAudio[6][15]={"auto", "mic", "video", "bleeps", "no_audio", "webcam"
 char TabModeSTD[2][7]={"6","0"};
 char TabModeVidIP[2][7]={"0","1"};
 char TabModeOP[15][31]={"IQ", "QPSKRF", "DATVEXPRESS", "LIMEUSB", "STREAMER", "COMPVID", \
-  "LIBRESDR", "IP", "LIMEMINI", "JLIME", "JSTREAM", "MUNTJAC", "LIMEDVB", "PLUTO"};
+  "LIBRESDR", "IP", "LIMEMINI", "JLIME", "JSTREAM", "MUNTJAC", "LIMEDVB", "PLUTO", "DATVEXPRESS_S2"};
 char TabModeOPtext[15][31]={"Portsdown", " Ugly ", "Express", "Lime USB", "BATC^Stream", "Comp Vid", \
-  "LibreSDR", "IPTS out", "Lime Mini", "Jetson^Lime", "Jetson^Stream", "Muntjac", "Lime DVB", "Pluto"};
+  "LibreSDR", "IPTS out", "Lime Mini", "Jetson^Lime", "Jetson^Stream", "Muntjac", "Lime DVB", "Pluto", "Express^S2"};
 char TabAtten[4][15] = {"NONE", "PE4312", "PE43713", "HMC1119"};
 char CurrentModeOP[31] = "QPSKRF";
 char CurrentModeOPtext[31] = " UGLY ";
@@ -225,7 +225,7 @@ char CurrentPiCamOrientation[15] = "normal";
 // "IPTSIN","ANALOGMPEG-2", "CARDMPEG-2", "CAMHDMPEG-2", "DESKTOP", "FILETS"
 //  NOT "C920"
 // "JHDMI", "JCAM", "JPC", "JCARD", "JWEBCAM", "HDMI"
-// "IPTSIN264", "IPTSIN265", "SRT" (receive-only preview for now)
+// "IPTSIN264", "IPTSIN265", "SRT" (interlocked Express S2 source)
 
 // Composite Video Output variables
 char TabVidSource[8][15] = {"Pi Cam", "CompVid", "TCAnim", "TestCard", "Snap", "Contest", "Webcam", "Movie"};
@@ -2514,6 +2514,11 @@ void ReadModeOutput(char Moutput[256])
     strcpy(Moutput, "DATV Express DVB-S");
     strcpy(CurrentModeOPtext, TabModeOPtext[2]);
   } 
+  else if (strcmp(ModeOutput, "DATVEXPRESS_S2") == 0)
+  {
+    strcpy(Moutput, "DATV Express DVB-S2");
+    strcpy(CurrentModeOPtext, TabModeOPtext[14]);
+  }
   else if (strcmp(ModeOutput, "LIMEUSB") == 0) 
   {
     strcpy(Moutput, "LimeSDR USB");
@@ -8213,6 +8218,7 @@ int getTouchSampleThread(int *rawX, int *rawY, int *rawPressure)
 
 int getTouchSample(int *rawX, int *rawY, int *rawPressure)
 {
+  int idle_checks = 0;
   while (true)
   {
     if (TouchTrigger == 1)
@@ -8254,6 +8260,11 @@ int getTouchSample(int *rawX, int *rawY, int *rawPressure)
     else
     {
       usleep(1000);
+      // Allow the main menu loop to notice a lost SRT transmitter without
+      // requiring the operator to touch the screen.
+      if (strcmp(ScreenState, "TXwithMenu") == 0 &&
+          strcmp(ModeInput, "SRT") == 0 && ++idle_checks >= 1000)
+        return 0;
     }
   }
   return 0;
@@ -8629,7 +8640,7 @@ void ApplyTXConfig()
   }
   else if (strcmp(CurrentSource, "SRT") == 0)
   {
-    // Preserve the selected source; SRT is currently a receive-only preview.
+    // Preserve the selected SRT source and H.264 encoder label.
     strcpy(ModeInput, "SRT");
     strcpy(CurrentEncoding, "H264");
     SetConfigParam(PATH_PCONFIG, "encoding", CurrentEncoding);
@@ -9009,6 +9020,17 @@ void ApplyTXConfig()
 void EnforceValidTXMode()
 {
   char Param[15]="modulation";
+
+  if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0)
+  {
+    // Raw-16 experimental backend currently implements QPSK only.
+    if (strcmp(CurrentTXMode, TabTXMode[2]) != 0)
+    {
+      strcpy(CurrentTXMode, TabTXMode[2]);
+      SetConfigParam(PATH_PCONFIG, Param, CurrentTXMode);
+    }
+    return;
+  }
 
   if ((strcmp(CurrentModeOP, "LIMEUSB") != 0)
        && (strcmp(CurrentModeOP, "LIMEMINI") != 0)
@@ -10173,13 +10195,28 @@ void GreyOutReset49()
   SetButtonStatus(ButtonNumber(CurrentMenu, 1), 0); // 8PSK
   SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0); // 16 APSK
   SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0); // 32APSK
+  SetButtonStatus(ButtonNumber(CurrentMenu, 5), 0); // DVB-S
   SetButtonStatus(ButtonNumber(CurrentMenu, 6), 0); // carrier
   SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0); // Show DVB-T
+  SetButtonStatus(ButtonNumber(CurrentMenu, 8), 0); // Pilots
+  SetButtonStatus(ButtonNumber(CurrentMenu, 9), 0); // Frames
   SetButtonStatus(ButtonNumber(CurrentMenu, 12), 0); // Show DVB-T2
 }
 
 void GreyOut49()
 {
+  if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0)
+  {
+    // The new backend implements DVB-S2 QPSK only. Keep the selected mode
+    // available in the modulation menu and hide every unsupported mode.
+    SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0); // S2 QPSK
+    for (int button = 1; button <= 3; button++)
+      SetButtonStatus(ButtonNumber(CurrentMenu, button), 2);
+    for (int button = 5; button <= 9; button++)
+      SetButtonStatus(ButtonNumber(CurrentMenu, button), 2);
+    SetButtonStatus(ButtonNumber(CurrentMenu, 12), 2);
+    return;
+  }
   if ((strcmp(CurrentModeOP, "LIMEUSB") != 0)
    && (strcmp(CurrentModeOP, "LIMEMINI") != 0)
    && (strcmp(CurrentModeOP, "LIMEDVB") != 0)
@@ -10310,6 +10347,7 @@ void GreyOut25()
 
 void GreyOutReset42()
 {
+  SetButtonStatus(ButtonNumber(CurrentMenu, 0), 0); // Express DVB-S2
   SetButtonStatus(ButtonNumber(CurrentMenu, 2), 0); // LibreSDR
   SetButtonStatus(ButtonNumber(CurrentMenu, 3), 0); // Lime Mini
   SetButtonStatus(ButtonNumber(CurrentMenu, 7), 0); // DATV Express
@@ -10590,9 +10628,13 @@ void SelectOP(int NoButton)      // Output device
     system("sudo rm /tmp/expctrl >/dev/null 2>/dev/null");
   }
 
-  SelectInGroupOnMenu(CurrentMenu, 5, 13, NoButton, 1);
+  SelectInGroupOnMenu(CurrentMenu, 5, 14, NoButton, 1);
   SelectInGroupOnMenu(CurrentMenu, 0, 3, NoButton, 1);
-  if (NoButton > 9 ) // 3rd row up
+  if (NoButton == 0) // formerly vacant button: DATV Express S2
+  {
+    index = 14;
+  }
+  else if (NoButton > 9 ) // 3rd row up
   {
     index = NoButton - 1;
   }
@@ -10600,7 +10642,7 @@ void SelectOP(int NoButton)      // Output device
   {
     index = NoButton - 5;
   }
-  if (NoButton < 4) // Bottom row
+  if (NoButton > 0 && NoButton < 4) // Bottom row
   {
     index = NoButton + 5;
   }
@@ -12438,21 +12480,26 @@ void TransmitStart()
   char Value[255];
   #define PATH_SCRIPT_A "/home/pi/rpidatv/scripts/a.sh >/dev/null 2>/dev/null"
 
-  // Turn the VCO off in case it has been used for receive
-  system("sudo /home/pi/rpidatv/bin/adf4351 off");
-
-  // Check Lime connected if selected
-  CheckLimeReady();
-  // and Check Pluto connected if selected
-  CheckPlutoReady();
-  // and Check LibreSDR connected if selected
-  CheckLibreSDRReady();
-  // and Check Muntjac connected if selected
-  CheckMuntjacReady();
-
   strcpy(Param,"modeinput");
   GetConfigParam(PATH_PCONFIG,Param,Value);
   strcpy(ModeInput,Value);
+
+  if (strcmp(ModeInput, "SRT") == 0)
+  {
+    // Do not run PTT, TXstartextras, or LimeRFE before source validation.
+    // The supervisor starts the backend only after live TS is validated.
+    strcpy(ScreenState, "TXwithMenu");
+    system("/home/pi/rpidatv/scripts/a.sh >/tmp/portsdown-srt-tx.log 2>&1 &");
+    return;
+  }
+
+  // Turn the VCO off in case it has been used for receive
+  system("sudo /home/pi/rpidatv/bin/adf4351 off");
+
+  CheckLimeReady();
+  CheckPlutoReady();
+  CheckLibreSDRReady();
+  CheckMuntjacReady();
 
   // If Pi Cam source, and not IPTS or TS File input, clear the screen
   if ((strcmp(CurrentSource, "Pi Cam") == 0) && (strcmp(CurrentEncoding, "IPTS in") != 0)
@@ -12553,6 +12600,10 @@ void TransmitStop()
   char picamdev1[15];
 
   printf("\nStopping all transmit processes, even if they weren't running\n");
+
+  // Stop the interlocked backend and wait for its deinit before generic
+  // killall calls affect the SRT encoder.
+  system("/home/pi/rpidatv/scripts/srt_tx_stop.sh >/dev/null 2>/dev/null");
 
   // If transmit menu is displayed, blue-out the TX button here
   // code to be added
@@ -20695,6 +20746,23 @@ void waituntil(int w,int h)
   // Start the main loop for the Touchscreen
   for (;;)
   {
+    if (strcmp(ScreenState, "TXwithMenu") == 0 &&
+        strcmp(ModeInput, "SRT") == 0)
+    {
+      FILE *srt_pid_file = fopen("/tmp/portsdown-srt-tx.pid", "r");
+      long srt_pid = 0;
+      if (srt_pid_file != NULL)
+      {
+        if (fscanf(srt_pid_file, "%ld", &srt_pid) != 1) srt_pid = 0;
+        fclose(srt_pid_file);
+      }
+      if (srt_pid <= 1 || kill((pid_t)srt_pid, 0) != 0)
+      {
+        SelectPTT(20, 0);
+        strcpy(ScreenState, "NormalMenu");
+        UpdateWindow();
+      }
+    }
     if ((strcmp(ScreenState, "RXwithImage") != 0) && (strcmp(ScreenState, "VideoOut") != 0)
      && (boot_to_tx == false) && (boot_to_rx == false))  // Don't wait for touch if returning from recieve or booting to TX or rx
     {
@@ -21039,7 +21107,22 @@ void waituntil(int w,int h)
         case 20:                       // TX PTT
           if (strcmp(ModeInput, "SRT") == 0)
           {
-            MsgBox2("SRT is an external receive/preview source", "RF transmit is not yet connected");
+            if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") != 0)
+            {
+              MsgBox2("SRT TX requires DATV Express S2", "Select that output first");
+              wait_touch();
+            }
+            else
+            {
+              // Green means armed; it does not mean the board is keyed.
+              SelectPTT(i, 1);
+              UpdateWindow();
+              TransmitStart();
+            }
+          }
+          else if (strcmp(CurrentModeOP, "DATVEXPRESS_S2") == 0)
+          {
+            MsgBox2("DATV Express S2 requires SRT", "Select Source: SRT first");
             wait_touch();
           }
           else if (strcmp(CurrentModeOP, "COMPVID") == 0) // Comp Vid OP
@@ -24093,9 +24176,9 @@ void waituntil(int w,int h)
           SelectOP(i);
           printf("STREAMER\n");
           break;
-        case 0:                               // COMPVID
-          //SelectOP(i);
-          //printf("COMPVID\n");
+        case 0:                               // Express DVB-S2
+          SelectOP(i);
+          printf("Express DVB-S2\n");
           break;
         case 1:                               // LibreSDR
           SelectOP(i);
@@ -24456,7 +24539,7 @@ void waituntil(int w,int h)
           SelectSource(i);
           printf("CompVid\n");
           break;
-        case 7:                               // SRT receive-only source
+        case 7:                               // SRT interlocked source
           SelectSource(i);
           printf("SRT\n");
           break;
@@ -29828,9 +29911,10 @@ void Define_Menu42()
   AddButtonStatus(button, "Cancel", &DBlue);
   AddButtonStatus(button, "Cancel", &LBlue);
 
-  //button = CreateButton(42, 0);                        // Was Comp Vid
-  //AddButtonStatus(button, TabModeOPtext[5], &Blue);
-  //AddButtonStatus(button, TabModeOPtext[5], &Green);
+  button = CreateButton(42, 0);                          // Express DVB-S2
+  AddButtonStatus(button, TabModeOPtext[14], &Blue);
+  AddButtonStatus(button, TabModeOPtext[14], &Green);
+  AddButtonStatus(button, TabModeOPtext[14], &Grey);
 
   button = CreateButton(42, 1);                          // LibreSDR
   AddButtonStatus(button, TabModeOPtext[6], &Blue);
@@ -29901,6 +29985,12 @@ void Define_Menu42()
 void Start_Highlights_Menu42()
 {
   GreyOutReset42();
+
+  if (strcmp(CurrentModeOP, TabModeOP[14]) == 0)
+  {
+    SelectInGroupOnMenu(42, 5, 14, 0, 1);
+    SelectInGroupOnMenu(42, 0, 3, 0, 1);
+  }
 
   if(strcmp(CurrentModeOP, TabModeOP[6]) == 0)  // LIBRESDR
   {
@@ -30218,7 +30308,7 @@ void Define_Menu45()
   AddButtonStatus(button, TabSource[1], &Green);
   AddButtonStatus(button, TabSource[1], &Grey);
 
-  button = CreateButton(45, 7);                     // SRT receive-only source
+  button = CreateButton(45, 7);                     // SRT interlocked source
   AddButtonStatus(button, TabSource[10], &Blue);
   AddButtonStatus(button, TabSource[10], &Green);
   AddButtonStatus(button, TabSource[10], &Grey);

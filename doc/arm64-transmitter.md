@@ -48,11 +48,12 @@ existing `rover-web.service` remained active.
 
 ## DATV-Express USB: DVB-S is not DVB-S2
 
-The existing Portsdown `DATVEXPRESS` output is explicitly **DVB-S only**. The
-GUI labels it "DATV Express DVB-S" and `EnforceValidTXMode()` changes an
-attempted DVB-S2 selection back to DVB-S. Its Linux `express_server` runs
-the board's DVB-S FPGA firmware, not a DVB-S2 modulator. Building that server
-for AArch64 therefore does **not** meet the requested Portsdown DVB-S2 output.
+The existing Portsdown `DATVEXPRESS` output remains **DVB-S only**. A distinct
+experimental `DATVEXPRESS_S2` GUI output selects S2 QPSK with an interlocked
+SRT source; it does not change the legacy mode. The old Linux
+`express_server` runs the board's DVB-S FPGA firmware, not a DVB-S2
+modulator. Building that server for AArch64 therefore does **not** meet the
+requested Portsdown DVB-S2 output.
 
 The board itself is not necessarily limited to DVB-S. G4GUO's Windows
 `DatvExpressTransmitter` sends software-generated DVB-S2 I/Q through the
@@ -91,9 +92,10 @@ links `libdvbmod` to the Linux raw-16 USB driver. With no options it runs an
 offline, 1000-null-packet QPSK 1/2 probe. `--input FILE` accepts 188-byte
 MPEG-TS packets (`-` means stdin); `--tx --frequency HZ` is an explicit,
 still-unverified hardware mode that requires an input and holds the board at
-maximum built-in attenuation. It has **not** been run with the board, and it
-does not appear in the GUI. It currently supports only QPSK 1/2, normal
-frames, pilots off, and 35% rolloff. Build with the external library and
+maximum built-in attenuation. It has **not** been run with the board. The GUI
+now has a separate **Express S2** mode that invokes this backend only after
+valid live SRT TS is received. The backend supports its listed QPSK FEC rates,
+normal frames, pilots off, and 35% rolloff. Build with the external library and
 development headers installed:
 
 ```sh
@@ -114,11 +116,11 @@ run**, not a working DATV-Express DVB-S2 transmission.
 
 The path to a verifiable Portsdown DVB-S2/DATV-Express transmitter is:
 
-1. Connect the standalone backend to Portsdown's existing `videots` path
-   (including a future SRT ingest connection), then add a separate
-   `DATVEXPRESS_S2` output. Preserve the working DVB-S mode. Expand the
-   initial QPSK 1/2 mode to explicit code rate, pilots, frame length, symbol
-   rate, and rolloff, rejecting unsupported combinations.
+1. The separate `DATVEXPRESS_S2` GUI output and live SRT interlock now build
+   natively on TANK and pass offline gate/disconnect/stall tests. Preserve the
+   working DVB-S mode. Validate GUI interaction with an actual 800×480
+   framebuffer, and extend the backend beyond QPSK/normal-frame/pilots-off
+   only after hardware tests.
 2. Adapt the existing Linux raw-16 USB transport for continuous I/Q. Set the
    board sample clock to symbol rate times interpolation, use its raw-16 FPGA
    image, and keep PTT in receive until configuration and buffering succeed.
@@ -131,7 +133,8 @@ The path to a verifiable Portsdown DVB-S2/DATV-Express transmitter is:
    USB enumeration/firmware load and sustained streaming with the board
    connected. Finally test RF into a dummy load/attenuated receiver across
    representative symbol rates and FEC modes, including stop/underrun/PTT.
-   Enable the GUI choice only after this path is proven.
+   The GUI choice is experimental and must not be treated as RF-verified until
+   this path is proven.
 
 No DATV-Express board was present for this build. The 32-bit and 64-bit
 Portsdown forks currently **do not provide verified DVB-S2 transmission via
