@@ -44,8 +44,11 @@ supervisor does not yet switch TANK's low-resolution return service.
 
 ## Verification and remaining hardware work
 
-On TANK (AArch64 Debian Trixie Pi 4), the updated GUI and backend compiled
-natively in an isolated directory. A synthetic SRT source in `--dry-run`
+On TANK (AArch64 Debian Trixie Pi 4), a **fresh clone of the published
+`arm64-transmitter` branch at `29c5790`** compiled the updated GUI and backend
+natively, using TANK's existing wiringPi, LimeSuite, FastCGI, and libdvbmod
+build dependencies. This was a clean-checkout build, **not a fresh OS install**.
+A synthetic SRT source in `--dry-run`
 confirmed no backend before video, backend start after valid TS, and stop
 after both source disconnect and an open-but-stalled sender. TANK has no
 DATV-Express board, touchscreen, or `/dev/fb0`; its rover service remained
