@@ -2,6 +2,18 @@
 
 # Updates an existing Ryde installation on Portsdown
 
+# This legacy updater rewrites apt sources for Buster. Keep it off Trixie.
+if [ ! -r /etc/os-release ]; then
+  echo "Cannot identify the operating system; Ryde update stopped." >&2
+  exit 1
+fi
+. /etc/os-release
+if [ "${VERSION_CODENAME:-}" != "buster" ] || [ "$(dpkg --print-architecture)" != "armhf" ]; then
+  echo "The Ryde updater supports Raspberry Pi OS Buster 32-bit only." >&2
+  echo "Do not use it on Trixie; no Trixie updater is ready yet." >&2
+  exit 1
+fi
+
 echo
 echo "----------------------------------------"
 echo "----- Updating Ryde Receiver System-----"
@@ -196,6 +208,7 @@ echo "---------------------------------------------"
 grep -q "CombiTunerExpress" "$PATHUBACKUP"/config.yaml
 if [ $? == 0 ]; then # User's config file is latest version, so simply copy back
   cp -f -r "$PATHUBACKUP"/config.yaml /home/pi/ryde/config.yaml >/dev/null 2>/dev/null
+fi
 
 # Restore the user's original audio output (Default is HDMI)
 case "$AUDIO_JACK" in
@@ -230,7 +243,6 @@ echo
 sudo shutdown -r now
 
 exit
-
 
 
 

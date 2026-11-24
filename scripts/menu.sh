@@ -1993,21 +1993,8 @@ do_EasyCap()
         fi
     fi
 
-    ## Check and set the standard
-    ACSTANDARD=$(get_config_var analogcamstandard $PCONFIGFILE)
-    ACSTANDARD=$(whiptail --inputbox "Enter 0 for NTSC, 6 for PAL, - for not set" 8 78 $ACSTANDARD --title "SET EASYCAP VIDEO STANDARD" 3>&1 1>&2 2>&3)
-    if [ $? -eq 0 ]; then
-        if [ "$ACSTANDARD" == "-" ]; then
-            set_config_var analogcamstandard "$ACSTANDARD" $PCONFIGFILE
-        else
-            if [[ $ACSTANDARD =~ ^[0-9]+$ ]]; then
-                set_config_var analogcamstandard "$ACSTANDARD" $PCONFIGFILE
-            else
-                whiptail --title "Error" --msgbox "Please enter only numbers or a -.  Please press enter to continue and reselect" 8 78
-            fi
-        fi
-
-    fi
+    ## This NTSC fork fixes EasyCap capture to NTSC-M.
+    set_config_var analogcamstandard 0 $PCONFIGFILE
 }
 
 do_audio_switch()
@@ -3093,7 +3080,7 @@ menuchoice=$(whiptail --title "$StrSystemTitle" --menu "$StrSystemContext" 20 78
     "4 WiFi Set-up" "SSID and password"  \
     "5 WiFi Off" "Turn the WiFi Off" \
     "6 Web Control" "Enable or Disable Web Control" \
-    "7 Set-up EasyCap" "Set input socket and PAL/NTSC"  \
+    "7 Set-up EasyCap" "Set input socket (NTSC only)"  \
     "8 Audio Input" "Select USB Dongle or EasyCap"  \
     "9 Attenuator" "Select Output Attenuator Type"  \
     "10 Lime Status" "Check the LimeSDR Firmware Version"  \

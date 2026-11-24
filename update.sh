@@ -2,6 +2,18 @@
 
 # Updated by davecrump 20230228 for Portsdown 4 and LimeSDR Mini V2
 
+# This legacy updater rewrites apt sources for Buster. Keep it off Trixie.
+if [ ! -r /etc/os-release ]; then
+  echo "Cannot identify the operating system; update stopped." >&2
+  exit 1
+fi
+. /etc/os-release
+if [ "${VERSION_CODENAME:-}" != "buster" ] || [ "$(dpkg --print-architecture)" != "armhf" ]; then
+  echo "This updater supports Raspberry Pi OS Buster 32-bit only." >&2
+  echo "Do not use it on Trixie; no Trixie updater is ready yet." >&2
+  exit 1
+fi
+
 DisplayUpdateMsg() {
   # Delete any old update message image
   rm /home/pi/tmp/update.jpg >/dev/null 2>/dev/null
@@ -66,26 +78,11 @@ GIT_SRC_FILE=".portsdown_gitsrc"
 if [ -e ${GIT_SRC_FILE} ]; then
   GIT_SRC=$(</home/pi/${GIT_SRC_FILE})
 else
-  GIT_SRC="BritishAmateurTelevisionClub"
+  GIT_SRC="Marx1"
 fi
 
-## If previous version was Dev (davecrump), load production by default
-if [ "$GIT_SRC" == "davecrump" ]; then
-  GIT_SRC="BritishAmateurTelevisionClub"
-fi
+if [ "$GIT_SRC" == "Marx1" ]; then  echo "Updating to latest Production Portsdown NTSC RPi 4 build";
 
-if [ "$1" == "-d" ]; then
-  echo "Overriding to update to latest development version"
-  GIT_SRC="davecrump"
-fi
-
-if [ "$GIT_SRC" == "BritishAmateurTelevisionClub" ]; then
-  echo "Updating to latest Production Portsdown RPi 4 build";
-elif [ "$GIT_SRC" == "davecrump" ]; then
-  echo "Updating to latest development Portsdown RPi 4 build";
-else
-  echo "Updating to latest ${GIT_SRC} development Portsdown RPi 4 build";
-fi
 
 printf "Pausing Streamer or TX if running.\n\n"
 sudo killall keyedstream >/dev/null 2>/dev/null
@@ -462,15 +459,9 @@ wget https://github.com/${GIT_SRC}/portsdown4_NTSC/archive/master.zip -O master.
 
 # Unzip and overwrite where we need to
 unzip -o master.zip
-<<<<<<< HEAD
 cp -f -r portsdown4_NTSC-master/bin rpidatv
 cp -f -r portsdown4_NTSC-master/scripts rpidatv
 cp -f -r portsdown4_NTSC-master/src rpidatv
-=======
-cp -f -r portsdown4-master/bin rpidatv
-cp -f -r portsdown4-master/scripts rpidatv
-cp -f -r -p portsdown4-master/src rpidatv
->>>>>>> upstream/master
 rm -f rpidatv/video/*.jpg
 cp -f -r portsdown4_NTSC-master/video rpidatv
 cp -f -r portsdown4_NTSC-master/version_history.txt rpidatv/version_history.txt
@@ -480,14 +471,9 @@ cp -f portsdown4_NTSC-master/add_ryde.sh rpidatv/add_ryde.sh
 cp -f portsdown4_NTSC-master/update_ryde.sh rpidatv/update_ryde.sh
 
 # Copy the recently added images into the user's back-up image folder
-<<<<<<< HEAD
 cp portsdown4_NTSC-master/scripts/images/web_not_enabled.png "$PATHUBACKUP"/images/web_not_enabled.png
 cp portsdown4_NTSC-master/scripts/images/RX_overlay.png "$PATHUBACKUP"/images/RX_overlay.png
-=======
-cp portsdown4-master/scripts/images/web_not_enabled.png "$PATHUBACKUP"/images/web_not_enabled.png
-cp portsdown4-master/scripts/images/RX_overlay.png "$PATHUBACKUP"/images/RX_overlay.png
-cp portsdown4-master/scripts/images/tcf1080.jpg "$PATHUBACKUP"/images/tcf1080.jpg
->>>>>>> upstream/master
+cp portsdown4_NTSC-master/scripts/images/tcf1080.jpg "$PATHUBACKUP"/images/tcf1080.jpg
 
 rm master.zip
 rm -rf portsdown4_NTSC-master
@@ -582,15 +568,26 @@ echo
 echo "-------------------------------------"
 echo "----- Updating the H264 Encoder -----"
 echo "-------------------------------------"
-cd /home/pi/avc2ts
-rm avc2ts.cpp
-
-# Download the previously selected version of avc2ts.cpp for Portsdown 4
-wget https://github.com/${GIT_SRC}/avc2ts/raw/portsdown4/avc2ts.cpp
-
-# Make avc2ts with new source
-make
-cp avc2ts ../rpidatv/bin/
+if [ -f /home/pi/avc2ts/avc2ts.cpp ]; then
+  cd /home/pi/avc2ts
+  # The Marx1/avc2ts portsdown4_NTSC branch does not exist. Match the
+  # BATC portsdown4 source used by the initial installer instead.
+  cp avc2ts.cpp avc2ts.cpp.before-update
+  if wget -q -O avc2ts.cpp.download \
+      https://raw.githubusercontent.com/BritishAmateurTelevisionClub/avc2ts/portsdown4/avc2ts.cpp \
+      && [ -s avc2ts.cpp.download ]; then
+    mv avc2ts.cpp.download avc2ts.cpp
+    if ! make || ! install -m 0755 avc2ts ../rpidatv/bin/avc2ts.new \
+        || ! mv ../rpidatv/bin/avc2ts.new ../rpidatv/bin/avc2ts; then
+      mv avc2ts.cpp.before-update avc2ts.cpp
+      echo "H264 encoder build failed; retained installed encoder and restored source." >&2
+    fi
+  else
+    echo "H264 encoder download failed; retained installed encoder and source." >&2
+  fi
+else
+  echo "No legacy avc2ts source found; skipping legacy encoder update."
+fi
 cd /home/pi
 
 DisplayUpdateMsg "Step 7 of 10\nCompiling Portsdown SW\nLongMynd Receiver\nXXXXXX----"
@@ -690,10 +687,10 @@ if [ ! -f  /usr/local/include/sdrplay_api.h ]; then
   cd /home/pi/rpidatv/src/meteorview
 
   # Download api if required
-  if [ ! -f  SDRplay_RSP_API-ARM-3.09.1.run ]; then
-    wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
+  if [ ! -f SDRplay_RSP_API-Linux-3.12.1.run ]; then
+    wget https://www.sdrplay.com/software/SDRplay_RSP_API-Linux-3.12.1.run
   fi
-  chmod +x SDRplay_RSP_API-ARM-3.09.1.run
+  chmod +x SDRplay_RSP_API-Linux-3.12.1.run
 
   # Create file to trigger install on next reboot
   touch /home/pi/rpidatv/.post-install_actions

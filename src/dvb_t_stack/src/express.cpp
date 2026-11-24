@@ -23,6 +23,7 @@ static libusb_context       *m_usbctx;
 static sem_t usb_sem;
 static int m_tx_hardware;
 static unsigned char         m_ancillary;
+static int                   m_transfer_error;
 
 #define EXPRESS_DATA 1
 #define EXPRESS_I2C  2
@@ -40,8 +41,9 @@ const char *express_firmware_get_path( const char *filename, char *pathname )
 
 libusb_transfer *express_alloc_transfer(void)
 {
-    m_xfrs_in_progress++;
-    return libusb_alloc_transfer(0);
+    libusb_transfer *xfr = libusb_alloc_transfer(0);
+    if (xfr != NULL) m_xfrs_in_progress++;
+    return xfr;
 }
 void express_free_transfer( libusb_transfer *xfr  )
 {
@@ -61,15 +63,12 @@ void express_handle_events(int n)
 //
 void cb_xfr( struct libusb_transfer *xfr )
 {
-    if( xfr->status == LIBUSB_TRANSFER_COMPLETED )
-    {
-        //uint8_t *b  = (uint8_t*)xfr->buffer;
-        int   *id = (int*)xfr->user_data;
-        if( *id == EXPRESS_DATA )
-        {
-            express_free_transfer( xfr );
-        }
-    }
+    if (xfr->status != LIBUSB_TRANSFER_COMPLETED)
+        m_transfer_error = LIBUSB_ERROR_IO;
+    // The async data transfer owns its copied payload until completion,
+    // cancellation, or error. Release it on every callback status.
+    free(xfr->buffer);
+    express_free_transfer(xfr);
 }
 //
 // This callback handles I2C messages
@@ -148,6 +147,7 @@ int express_bulk_transfer(int ep, unsigned char *b, int l )
     int res;
     static int id = EXPRESS_DATA;
     struct libusb_transfer *xfr = express_alloc_transfer();
+    if (xfr == NULL) return LIBUSB_ERROR_NO_MEM;
     libusb_fill_bulk_transfer( xfr, m_handle, ep, b, l, cb_xfr, &id, USB_TIMEOUT );
     if((res=libusb_submit_transfer( xfr )) < 0 )
     {
@@ -1255,21 +1255,33 @@ void express_release_transfer_buffers(void)
 //
 int express_send_buffer( void *b, int l )
 {
-    int res = express_bulk_transfer(EP2OUT,(unsigned char *)b, l);
+    if (b == NULL || l <= 0) return LIBUSB_ERROR_INVALID_PARAM;
+    if (m_transfer_error < 0) return m_transfer_error;
+    // libusb_submit_transfer is asynchronous: callers may pass stack buffers
+    // or reuse their I/Q frame immediately after this function returns.
+    unsigned char *payload = (unsigned char *)malloc(l);
+    if (payload == NULL) return LIBUSB_ERROR_NO_MEM;
+    memcpy(payload, b, l);
+    int res = express_bulk_transfer(EP2OUT, payload, l);
+    if (res < 0) {
+        free(payload); // No callback will run when submission fails.
+        return res;
+    }
     while( m_xfrs_in_progress > (N_USB_TX_BUFFS/4))
     {
-        libusb_handle_events(m_usbctx);
+        res = libusb_handle_events(m_usbctx);
+        if (res < 0) return res;
     }
-    return res;
+    return m_transfer_error < 0 ? m_transfer_error : res;
 }
 // Used for testing to insert a single byte into the USB sample stream
 void express_insert_bytes(int n)
 {
-    unsigned char b[255];
+    unsigned char b[255] = {0};
     b[0] = 0x00;
     b[1] = 0x01;
     if( n > 255 ) n = 255;
-    express_send_buffer( &b, n );
+    express_send_buffer( b, n );
 }
 
 //
@@ -1277,15 +1289,23 @@ void express_insert_bytes(int n)
 // length is the number of complex samples
 // Send each symbol is 2 x 16 bits
 //
-void express_write_16_bit_samples( scmplx *s, int len )
+int express_write_16_bit_samples_checked( const scmplx *s, int len )
 {
+	if (s == NULL || len <= 0) return LIBUSB_ERROR_INVALID_PARAM;
 	scmplx *b = (scmplx*)malloc(sizeof(scmplx)*len);
+    if (b == NULL) return LIBUSB_ERROR_NO_MEM;
     for( int i = 0; i < len; i++ )
     {
        b[i].re = s[i].re | 0x0001;// Mark I channel, LSB is always '1'
        b[i].im = s[i].im & 0xFFFE;// Mark Q channel, LSB is always '0'
     }
-    express_send_buffer( (unsigned char *)b, len*sizeof(scmplx));
+    int res = express_send_buffer( (unsigned char *)b, len*sizeof(scmplx));
+    free(b);
+    return res;
+}
+void express_write_16_bit_samples( scmplx *s, int len )
+{
+    (void)express_write_16_bit_samples_checked(s, len);
 }
 //
 // Send each symbol is 2 x 8 bits
@@ -1382,6 +1402,7 @@ int express_init( const char *fx2_filename, const char *fpga_filename )
     sem_init( &usb_sem, 0, 0 );
 
     m_xfrs_in_progress = 0;
+    m_transfer_error = 0;
 
     // Find the board
     if(( m_express_status = express_find())<0)

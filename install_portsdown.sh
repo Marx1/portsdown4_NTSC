@@ -2,6 +2,19 @@
 
 # Portsdown 4 Install by davecrump on 20230227
 
+# This installer rewrites apt sources and configures the legacy Buster camera
+# stack. Never run those operations on a newer Raspberry Pi OS release.
+if [ ! -r /etc/os-release ]; then
+  echo "Cannot identify the operating system; installation stopped." >&2
+  exit 1
+fi
+. /etc/os-release
+if [ "${VERSION_CODENAME:-}" != "buster" ] || [ "$(dpkg --print-architecture)" != "armhf" ]; then
+  echo "This installer supports Raspberry Pi OS Buster 32-bit only." >&2
+  echo "Do not use it for a Bookworm or Trixie system; no Trixie installer is ready yet." >&2
+  exit 1
+fi
+
 # Check current user
 whoami | grep -q pi
 if [ $? != 0 ]; then
@@ -35,22 +48,77 @@ GIT_SRC_FILE=".portsdown_gitsrc"
     exit 1;
   fi
   echo "ok!";
-  
+
 # Download and install the VLC apt Preferences File 202212090
 cd /home/pi
-wget https://github.com/${GIT_SRC}/portsdown4-NTSC/raw/master/scripts/configs/vlc
+wget https://github.com/${GIT_SRC}/portsdown4_NTSC/raw/master/scripts/configs/vlc
 sudo cp vlc /etc/apt/preferences.d/vlc
 
-# Amend the sources.list to legacy
-sudo bash -c 'echo -e "deb http://legacy.raspbian.org/raspbian/ buster main contrib non-free rpi" > /etc/apt/sources.list' 
+
+# Configure legacy Raspbian Buster repositories
+echo
+echo "------------------------------------------------"
+echo "----- Configuring Buster APT Repositories -----"
+echo "------------------------------------------------"
+
+# Back up existing repository configuration
+APT_BACKUP="/etc/apt/portsdown-backup-$(date +%Y%m%d-%H%M%S)"
+sudo mkdir -p "$APT_BACKUP"
+
+sudo cp -a /etc/apt/sources.list "$APT_BACKUP/" || exit 1
+
+if [ -d /etc/apt/sources.list.d ]; then
+  sudo cp -a /etc/apt/sources.list.d "$APT_BACKUP/" || exit 1
+fi
+
+# Replace obsolete Raspbian mirrors with the legacy archive.
+# Do not modify archive.raspberrypi.org/debian, which is
+# a separate repository for Raspberry Pi-specific packages.
+
+for source_file in /etc/apt/sources.list \
+                   /etc/apt/sources.list.d/*.list; do
+
+  [ -f "$source_file" ] || continue
+
+  sudo sed -i -E \
+    '/^[[:space:]]*deb(-src)?[[:space:]]/ {
+      /[[:space:]]buster[[:space:]]/ {
+        s@https?://(raspbian\.raspberrypi\.org|archive\.raspbian\.org|mirrordirector\.raspbian\.org)/raspbian/?@https://legacy.raspbian.org/raspbian/@g
+      }
+    }' "$source_file" || exit 1
+done
+
+# Make sure the Raspbian Buster repository exists
+if ! grep -Eh \
+  '^[[:space:]]*deb[[:space:]].*legacy\.raspbian\.org/raspbian/?.*[[:space:]]buster[[:space:]]' \
+  /etc/apt/sources.list \
+  /etc/apt/sources.list.d/*.list 2>/dev/null | grep -q .; then
+
+  echo "Adding missing Raspbian Buster repository."
+
+  echo "deb https://legacy.raspbian.org/raspbian/ buster main contrib non-free rpi" | \
+    sudo tee -a /etc/apt/sources.list >/dev/null || exit 1
+fi
 
 # Update the package manager
 echo
 echo "------------------------------------"
 echo "----- Updating Package Manager -----"
 echo "------------------------------------"
-sudo dpkg --configure -a
-sudo apt-get update --allow-releaseinfo-change
+
+sudo dpkg --configure -a || exit 1
+
+if ! sudo apt-get update --allow-releaseinfo-change; then
+  echo
+  echo "ERROR: APT update failed."
+  echo "Check the repository errors above."
+  echo "APT configuration backup: $APT_BACKUP"
+  exit 1
+fi
+
+echo
+echo "APT repositories updated successfully."
+
 
 # Uninstall the apt-listchanges package to allow silent install of ca certificates (201704030)
 # http://unix.stackexchange.com/questions/124468/how-do-i-resolve-an-apparent-hanging-update-process
@@ -75,16 +143,16 @@ echo "-------------------------------"
 echo "----- Installing Packages -----"
 echo "-------------------------------"
 
-sudo apt-get -y install git cmake libusb-1.0-0-dev libfftw3-dev libxcb-shape0 
-sudo apt-get -y install libx11-dev buffer libjpeg-dev indent 
+sudo apt-get -y install git cmake libusb-1.0-0-dev libfftw3-dev libxcb-shape0
+sudo apt-get -y install libx11-dev buffer libjpeg-dev indent
 sudo apt-get -y install bc usbmount libvncserver-dev
 sudo apt-get -y install ttf-dejavu-core                                  # being depracated?
 sudo apt-get -y install fonts-dejavu-core                                 # Bookworm support
-sudo apt-get -y install fbi  imagemagick 
-#sudo apt-get -y install netcat omxplayer                                         #Legacy os 
+sudo apt-get -y install fbi  imagemagick
+#sudo apt-get -y install netcat omxplayer                                         #Legacy os
 
 sudo apt-get -y netcat-traditional                                    #bookworm support
-sudo apt-get -y install libpng-dev 
+sudo apt-get -y install libpng-dev
 sudo apt-get -y install libraspberrypi-dev
 sudo apt-get -y install libvdpau-dev libva-dev                           # For latest ffmpeg build
 sudo apt-get -y install libsqlite3-dev libi2c-dev                        # 201811300 Lime
@@ -122,21 +190,11 @@ sudo apt-get -y install libhamlib++-dev                                 # For IS
 sudo apt-get -y install libhamlib-utils                                 # For ISS tracker
 pip3 install ephem requests                                             # For ISS tracker
 
-
-  read -n1 -r -s key;
-  if [[ $key == q ]]; then
-    exit 1;
-  fi
-  echo "ok!";
-  
-  
 # Install WiringPi
 cd ~
 git clone https://github.com/WiringPi/WiringPi.git
 cd WiringPi
-<<<<<<< HEAD
-rm ./debian-template/wiringpi*.deb   #clear any old junk out
-=======
+rm -f ./debian-template/wiringpi*.deb   # Clear any old packages
 
 # Modify so that it installs on 32-bit buster
 cd wiringPi
@@ -144,7 +202,6 @@ sed -i -e 's/\(\[\[gnu::packed\]\]\)//g' bcm_registers.h
 sed -i -e 's/\(\[\[gnu::packed\]\]\)//g' rp1_registers.h
 cd ~/WiringPi
 
->>>>>>> upstream/master
 ./build debian
 
 
@@ -156,7 +213,7 @@ cd ~/WiringPi
 
 # the below section doesn't work. So we're going to cheat and just install everyting from the debian-template directory,
 # Read latest WiringPi version number and install it
-# vMaj=`cut -d. -f1 VERSION`        
+# vMaj=`cut -d. -f1 VERSION`
 # vMin=`cut -d. -f2 VERSION`
 #mv debian-template/wiringpi_"$vMaj"."$vMin"_armhf.deb .
 #sudo apt install ./wiringpi_"$vMaj"."$vMin"_armhf.deb
@@ -183,8 +240,8 @@ cd /home/pi
     exit 1;
   fi
   echo "ok!";
-  
-  
+
+
 # Install Websockets for Meteor Beacon RX server
 git clone -b v4.5-stable --single-branch https://github.com/warmcat/libwebsockets.git
 cd libwebsockets
@@ -199,7 +256,7 @@ cd /home/pi
     exit 1;
   fi
   echo "ok!";
-  
+
 # Enable USB Storage automount in Buster
 echo
 echo "----------------------------------"
@@ -217,7 +274,7 @@ cd /home/pi
     exit 1;
   fi
   echo "ok!";
-  
+
 # Set auto login to command line.
 sudo raspi-config nonint do_boot_behaviour B2
 
@@ -252,14 +309,11 @@ echo
 echo "--------------------------------------------"
 echo "----- Downloading Portsdown 4 Software -----"
 echo "--------------------------------------------"
-# wget https://github.com/${GIT_SRC}/portsdown4_ntsc/archive/master.zip
-
-wget https://github.com/Marx1/portsdown4_NTSC/archive/refs/heads/Bookworm.zip -O master.zip
+wget https://github.com/${GIT_SRC}/portsdown4_NTSC/archive/refs/heads/master.zip -O master.zip
 
 # Unzip the rpidatv software and copy to the Pi
 unzip -o master.zip
-mv portsdown4_NTSC-Bookworm rpidatv
-# mv portsdown4_NTSC-master rpidatv
+mv portsdown4_NTSC-master rpidatv
 rm master.zip
 cd /home/pi
 
@@ -304,15 +358,15 @@ cd /home/pi
     exit 1;
   fi
   echo "ok!";
-  
-  
+
+
 # Install udev rules for LimeSuite
 cd LimeSuite/udev-rules
 chmod +x install.sh
 sudo /home/pi/LimeSuite/udev-rules/install.sh
-cd /home/pi	
+cd /home/pi
 
-# Record the LimeSuite Version	
+# Record the LimeSuite Version
 echo "9c983d8" >/home/pi/LimeSuite/commit_tag.txt
 
 # Download the LimeSDR Mini firmware/gateware versions
@@ -324,7 +378,7 @@ echo "------------------------------------------------------"
 # OLD CODE STUFFS.
 
 
-# Current LimeSDR Mini V1 Version from LimeSuite 22.09 
+# Current LimeSDR Mini V1 Version from LimeSuite 22.09
 #mkdir -p /home/pi/.local/share/LimeSuite/images/22.09/
 #wget https://downloads.myriadrf.org/project/limesuite/22.09/LimeSDR-Mini_HW_1.2_r1.30.rpd -O \
 #               /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_1.2_r1.30.rpd
@@ -334,7 +388,7 @@ echo "------------------------------------------------------"
 #wget https://github.com/natsfr/LimeSDR_DVBSGateware/releases/download/v0.3/LimeSDR-Mini_lms7_trx_HW_1.2_auto.rpd -O \
 # /home/pi/.local/share/LimeSuite/images/v0.3/LimeSDR-Mini_lms7_trx_HW_1.2_auto.rpd
 
-# Current LimeSDR Mini V2 Version from LimeSuite 23.11 
+# Current LimeSDR Mini V2 Version from LimeSuite 23.11
 #wget https://downloads.myriadrf.org/project/limesuite/23.11/LimeSDR-Mini_HW_2.0_r2.2.bit -O \
 #               /home/pi/.local/share/LimeSuite/images/22.09/LimeSDR-Mini_HW_2.0_r2.2.bit
 
@@ -351,7 +405,7 @@ mkdir -p /home/pi/.local/share/LimeSuite/images/v0.3
 wget https://github.com/natsfr/LimeSDR_DVBSGateware/releases/download/v0.3/LimeSDR-Mini_lms7_trx_HW_1.2_auto.rpd -O \
  /home/pi/.local/share/LimeSuite/images/v0.3/LimeSDR-Mini_lms7_trx_HW_1.2_auto.rpd
 
-# Current LimeSDR Mini V2 Version from LimeSuite 23.11 
+# Current LimeSDR Mini V2 Version from LimeSuite 23.11
 wget https://downloads.myriadrf.org/project/limesuite/23.11/LimeSDR-Mini_HW_2.0_r2.2.bit -O \
                /home/pi/.local/share/LimeSuite/images/23.11/LimeSDR-Mini_HW_2.0_r2.2.bit
 
@@ -365,51 +419,22 @@ if [[ "$?" != "0" ]]; then
     /home/pi/.local/share/LimeSuite/images/23.11/LimeSDR-Mini_HW_2.0_r2.2.bit
 fi
 
-#echo
-#echo "--------------------------------------------------------------"
-#echo "----- Downloading Portsdown 4 version of avc2ts Software -----"
-#echo "--------------------------------------------------------------"
+echo
+echo "--------------------------------------------------"
+echo "----- Cloning Marx1 avc2ts Source Repository -----"
+echo "--------------------------------------------------"
 
+cd /home/pi
 
-#This app is going to be depricated in the NTSC version of portsdown.
+git clone --branch master \
+  https://github.com/Marx1/avc2ts.git \
+  /home/pi/avc2ts || exit 1
 
-# Download the previously selected version of avc2ts for Portsdown 4
-#cd /home/pi	
+echo "avc2ts source downloaded successfully."
 
-#wget https://github.com/${GIT_SRC}/avc2ts/archive/refs/heads/portsdown4.zip
-
-#Pull the code directly form BATC 
-#wget https://github.com/BritishAmateurTelevisionClub/avc2ts/archive/refs/heads/portsdown4.zip
-
-#Legacy code
-# Unzip the avc2ts software and copy to the Pi  
-#unzip -o portsdown4.zip
-#mv avc2ts-portsdown4 avc2ts
-#rm portsdown4.zip
-
-
-
-
-#since the following isn't in use yet, and it breaks on the pi4+ remove it.
-
-#libyuv should be used for fast picture transformation : not yet implemented
-#git clone https://chromium.googlesource.com/libyuv/libyuv
-#cd libyuv
-#should patch linux.mk with -DHAVE_JPEG on CXX and CFLAGS
-#seems to be link with libjpeg9-dev
-#make V=1 -f linux.mk
-#cd ../
 
 # Required for ffmpegsrc.cpp
 sudo apt-get -y install libvncserver-dev libavcodec-dev libavformat-dev libswscale-dev libavdevice-dev
-
-
-  read -n1 -r -s key;
-  if [[ $key == q ]]; then
-    exit 1;
-  fi
-  echo "ok!";
-
 
 # Compile rpidatv gui
 echo
@@ -458,10 +483,12 @@ make install
 #cd ../
 
 # Make avc2ts
-#cd /home/pi/avc2ts
-#make
-#cp avc2ts ../rpidatv/bin/
-#cd /home/pi
+cd /home/pi/avc2ts || exit 1
+
+make || exit 1
+install -m 755 avc2ts /home/pi/rpidatv/bin/avc2ts || exit 1
+
+cd /home/pi
 
 echo
 echo "-----------------------------------------------"
@@ -512,7 +539,7 @@ make
 cp dvb2iq /home/pi/rpidatv/bin/
 cd /home/pi/rpidatv/src/limesdr_toolbox/
 
-make 
+make
 cp limesdr_send /home/pi/rpidatv/bin/
 cp limesdr_dump /home/pi/rpidatv/bin/
 cp limesdr_stopchannel /home/pi/rpidatv/bin/
@@ -527,8 +554,8 @@ cd /home/pi
     exit 1;
   fi
   echo "ok!";
-  
-  
+
+
 # Install Muntjac
 
 #actually don't. It won't compile on 64bit and there are major issues here.
@@ -540,13 +567,8 @@ echo "------------------------------"
 
 cd /home/pi/rpidatv/src/muntjac
 
-<<<<<<< HEAD
-gcc  muntjacsdr_dvb.c  dvbs2neon.S   -lpthread  -o  muntjacsdr_dvb
-gcc  mjcalib-0v1a.c  dvbs2neon.S   -lpthread  -o mjcalib  # only used for manual calibration
-=======
 gcc  muntjacsdr_dvb.c  dvbs2neon.S  -mfpu=neon  -lpthread  -o  muntjacsdr_dvb
 #gcc  mjcalib-0v1a.c  dvbs2neon.S  -mfpu=neon  -lpthread  -o mjcalib  # only used for manual calibration
->>>>>>> upstream/master
 
 cp muntjacsdr_dvb /home/pi/rpidatv/bin/             # Executable
 
@@ -601,8 +623,8 @@ cd /home/pi
     exit 1;
   fi
   echo "ok!";
-  
-  
+
+
 # Download, compile and install the executable for hardware shutdown button
 echo
 echo "------------------------------------------------------------"
@@ -639,8 +661,8 @@ cp ~/rpidatv/scripts/configs/text.wifi_off ~/.wifi_off >/dev/null 2>/dev/null
     exit 1;
   fi
   echo "ok!";
-  
-  
+
+
 # Compile the Signal Generator
 echo
 echo "------------------------------------------"
@@ -666,8 +688,8 @@ cd /home/pi
     exit 1;
   fi
   echo "ok!";
-  
-  
+
+
 # Compile Band Viewer
 echo
 echo "---------------------------------"
@@ -697,8 +719,8 @@ cd /home/pi
     exit 1;
   fi
   echo "ok!";
-  
-  
+
+
 # Compile RTL-SDR Band Viewer
 echo
 echo "----------------------------------------"
@@ -715,8 +737,8 @@ cd /home/pi
     exit 1;
   fi
   echo "ok!";
-  
-  
+
+
 # Compile Pluto Band Viewer
 echo
 echo "---------------------------------------"
@@ -736,17 +758,8 @@ echo "---------------------------------------"
 cd /home/pi/rpidatv/src/meteorview
 
 # Download api
-<<<<<<< HEAD
-#wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
 wget https://www.sdrplay.com/software/SDRplay_RSP_API-Linux-3.12.1.run
-
-#chmod +x SDRplay_RSP_API-ARM-3.09.1.run
 chmod +x SDRplay_RSP_API-Linux-3.12.1.run
-=======
-# was wget "https://sdrplay.com/download/hardware-api-linux-32bit-unsupported/?wpdmdl=2341&refresh=6a87239f68e1f1787241375" -O SDRplay_RSP_API-ARM-3.09.1.run
-wget https://www.sdrplay.com/software/SDRplay_RSP_API-ARM-3.09.1.run
-chmod +x SDRplay_RSP_API-ARM-3.09.1.run
->>>>>>> upstream/master
 
 # Create file to trigger install on next reboot
 touch /home/pi/rpidatv/.post-install_actions
@@ -766,8 +779,8 @@ cd /home/pi
     exit 1;
   fi
   echo "ok!";
-  
-  
+
+
 # Compile Lime NF Meter
 echo
 echo "---------------------------------------------"
@@ -812,8 +825,8 @@ cd /home/pi
     exit 1;
   fi
   echo "ok!";
-  
-  
+
+
 # Compile LimeSDR Noise Meter
 echo
 echo "--------------------------------------"
@@ -866,7 +879,6 @@ cd /home/pi/rpidatv/src/ook48
 make
 cp ook48 ../../bin/
 cd /home/pi
-
 #echo
 #echo "-----------------------------------------"
 #echo "----- Compiling Ancilliary programs -----"
@@ -947,7 +959,7 @@ echo "alias stop='/home/pi/rpidatv/scripts/utils/stop.sh'"  >> /home/pi/.bash_al
 #cd /home/pi
 #sed -i 's|/home/pi/Langstone/run|source /home/pi/rpidatv/scripts/startup.sh|' .bashrc
 
-echo if test -z \"\$SSH_CLIENT\" >> ~/.bashrc 
+echo if test -z \"\$SSH_CLIENT\" >> ~/.bashrc
 echo then >> ~/.bashrc
 echo "source /home/pi/rpidatv/scripts/startup.sh" >> ~/.bashrc
 echo fi >> ~/.bashrc
@@ -1009,5 +1021,3 @@ sleep 1
 
 #sudo reboot now
 exit
-
-
